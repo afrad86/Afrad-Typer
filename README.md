@@ -2,19 +2,19 @@
 
 # Afrad Typer
 
-[![Download Afrad Typer for Mac](https://img.shields.io/badge/Download-Afrad%20Typer%20for%20Mac-orange?style=for-the-badge&logo=apple)](https://github.com/afrad86/Afrad-Typer/raw/main/release/Afrad-Typer.zip) [![Download Afrad Typer for Windows](https://img.shields.io/badge/Download-Afrad%20Typer%20for%20Windows-blue?style=for-the-badge&logo=windows)](https://github.com/afrad86/Afrad-Typer/raw/main/release/Afrad-Typer-Windows.exe)
+[![Download for MacOS](Resources/badge-mac.svg)](https://github.com/afrad86/Afrad-Typer/raw/main/release/Afrad-Typer.zip) [![Download for Windows](Resources/badge-windows.svg)](https://github.com/afrad86/Afrad-Typer/raw/main/release/Afrad-Typer-Windows.exe)
 
 (If the repository is private, sign in to GitHub first.)
 
 ## Install
 
 **Mac** (macOS 12 or newer, Apple Silicon and Intel)
-1. Click the orange **Download Afrad Typer for Mac** button and unzip the file.
+1. Click the orange **Download FOR MACOS** button and unzip the file.
 2. Drag **Afrad Typer** into Applications.
 3. First launch: right-click the app, choose **Open**, then **Open** again (the app is not notarised). If macOS still blocks it, run `xattr -cr "/Applications/Afrad Typer.app"` in Terminal.
 
 **Windows**
-1. Click the blue **Download Afrad Typer for Windows** button.
+1. Click the blue **Download FOR WINDOWS** button.
 2. Double-click `Afrad-Typer-Windows.exe`. There is nothing to install.
 3. If Windows shows a blue "Windows protected your PC" box, click **More info**, then **Run anyway** (the app is not code-signed).
 
