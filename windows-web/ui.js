@@ -289,6 +289,7 @@ function finish(timedOut) {
     };
     if (isStage) { rec.stage = T.stage; rec.passed = passed; }
     data.history.push(rec);
+    levelInfo(true);
     sitting.wpms.push(wpm); sitting.typingSecs += secs;
   }
   if (isStage) T.result.note = stageNote(reasons);
@@ -392,24 +393,49 @@ function renderToday(p) {
     '<div class="row"><label>Daily goal: <input type="number" data-input="dailyGoalMinutes" min="5" max="180" step="5" value="' + goal + '" style="width:70px"> minutes</label></div>' +
     '<h3>Suggested session</h3><p class="muted">Short, focused practice beats long occasional sessions. Stay above 95% accuracy and your speed will follow.</p>' + rows;
 }
-/* Level from your recent typing: median speed of your last 30 counted sessions, lowered by accuracy. */
+/* Level from your recent typing.
+   Sessions that count: normal text modes (not Symbols), no warm-ups or replays, very short runs (under ~30 characters) ignored, the rest weighted by length.
+   A lesson or passage repeated on the same day counts once (the best run). Median of the last 30.
+   Accuracy below 95% scales your speed down (net speed). Levels have a +/-2 WPM buffer so the tag does not flicker. */
 const LEVELS = [[100, 'Pro Max', '#c78bff'], [80, 'Pro', '#e8d44d'], [60, 'Advanced', '#f0883e'], [40, 'Intermediate', '#5fb878'], [0, 'Beginner', '#8ab4f8']];
-function levelInfo() {
-  const last = data.history.filter(isCounted).slice(-30);
+function levelSessions() {
+  const best = new Map(), out = [];
+  for (const r of data.history) {
+    if (!isCounted(r) || r.mode === 'Symbols' || r.wpm * r.seconds / 12 < 30) continue;
+    if (r.mode !== 'Lessons' && r.mode !== 'Passages') { out.push(r); continue; }
+    const k = dayKey(new Date(r.t)) + '|' + r.mode + '|' + String(r.detail);
+    const i = best.get(k);
+    if (i === undefined) { best.set(k, out.length); out.push(r); } else if (r.wpm > out[i].wpm) out[i] = r;
+  }
+  return out.slice(-30);
+}
+function pickTier(v, stored) {
+  const n = LEVELS.length;
+  if (stored !== undefined && stored !== null && stored >= 0 && stored < n) {
+    const stay = v >= LEVELS[stored][0] - 2 && (stored === 0 || v < LEVELS[stored - 1][0] + 2);
+    if (stay) return stored;
+  }
+  const i = LEVELS.findIndex(l => v >= l[0]);
+  return i < 0 ? n - 1 : i;
+}
+function levelInfo(commit) {
+  const last = levelSessions();
   if (last.length < 10) return { few: last.length };
-  const ws = last.map(r => r.wpm).sort((a, b) => a - b), m = ws.length >> 1;
-  const med = ws.length % 2 ? ws[m] : (ws[m - 1] + ws[m]) / 2;
-  const w = Math.round(med), acc = last.reduce((a, r) => a + r.accuracy, 0) / last.length;
-  const base = LEVELS.findIndex(l => w >= l[0]);
-  const drop = acc < 90 ? 2 : acc < 95 ? 1 : 0;           // accuracy below 95% costs a level, below 90% two
-  const i = Math.min(LEVELS.length - 1, base + drop);
-  return { w, acc, level: LEVELS[i], held: i > base, n: last.length };
+  const wt = r => Math.min(400, r.wpm * r.seconds / 12);          // longer sessions weigh more (capped)
+  const sorted = last.slice().sort((a, b) => a.wpm - b.wpm), tot = sorted.reduce((a, r) => a + wt(r), 0);
+  let cum = 0, med = sorted[sorted.length - 1].wpm;
+  for (const r of sorted) { cum += wt(r); if (cum >= tot / 2) { med = r.wpm; break; } }
+  const w = Math.round(med), acc = last.reduce((a, r) => a + r.accuracy * wt(r), 0) / tot;
+  const net = acc >= 95 ? med : med * Math.pow(acc / 95, 2);
+  const s = S_(), i = pickTier(net, s.levelTier), plain = pickTier(med, s.levelTierPlain);
+  if (commit && (s.levelTier !== i || s.levelTierPlain !== plain)) { s.levelTier = i; s.levelTierPlain = plain; save(); }
+  return { w, acc, level: LEVELS[i], held: i > plain, n: last.length };
 }
 function renderLevel() {
-  const el = $('#lvl'), L = levelInfo();
+  const el = $('#lvl'), L = levelInfo(false);
   if (L.few !== undefined) { el.innerHTML = '<div class="gt">Your level</div><div class="gs">Do 10 sessions to get your level (' + L.few + ' / 10).</div>'; el.title = ''; return; }
   el.innerHTML = '<div class="lh"><span class="tg" style="background:' + L.level[2] + '">' + L.level[1] + '</span><a class="qm" data-help="level" title="How levels work">?</a></div>' + levelBars(L.level[1]) + '<div class="row2"><div><b>' + L.w + '</b><span>WPM</span></div><div><b>' + L.acc.toFixed(1) + '%</b><span>Accuracy</span></div></div>' + (L.held ? '<div class="gs">Held back by accuracy (needs 95%)</div>' : '');
-  el.title = 'Median speed and average accuracy of your last ' + L.n + ' sessions';
+  el.title = 'Median speed and average accuracy of your last ' + L.n + ' counted sessions';
 }
 const LEVEL_RANGE = ['100+ WPM', '80–99 WPM', '60–79 WPM', '40–59 WPM', 'below 40 WPM'];
 function levelBars(cur) {
@@ -421,19 +447,26 @@ function levelBars(cur) {
 }
 
 const GUIDE = [
-  ['level', 'Your level and tag', ['The tag is based on the median speed of your last 30 sessions (warm-ups and mistake replays are not counted). It needs at least 10 sessions.', 'Beginner: below 40 WPM. Intermediate: 40–59. Advanced: 60–79. Pro: 80–99. Pro Max: 100+.', 'Accuracy matters: if your average accuracy is below 95% you drop one level, below 90% two levels. The five bars under the tag show all levels: filled means reached, empty means still to come.']],
-  ['pass', 'Passing a lesson', ['A lesson is passed when you reach the pass speed and accuracy set in Settings (default 30 WPM and 95%).', 'After a pass, Tab or Enter goes to the next lesson. If you did not pass, Tab repeats the lesson. Missed words can be replayed 5 times each.', 'Weak-spot words mixed in do not count towards the pass mark.']],
-  ['stages', 'Advanced stages', ['18 optional stages from 45 to 110 WPM: steps of 5 up to 80, then steps of 3. They never affect normal practice.', 'Each lesson is 200 words. To unlock the next stage, finish 30 lessons where at least 90% reach the stage speed with 97% accuracy (96% from 86 WPM).', 'The first stage lesson each day is a slow warm-up and does not count.']],
+  ['level', 'Your level and tag', ['The tag is based on the median speed of your last 30 sessions (warm-ups and mistake replays are not counted). It needs at least 10 sessions.', 'Beginner: below 40 WPM. Intermediate: 40–59. Advanced: 60–79. Pro: 80–99. Pro Max: 100+.', 'Accuracy matters: below 95% average accuracy, your speed counts for proportionally less (at 90% accuracy, 80 WPM counts as about 72). The tag only changes when you are 2 WPM past a boundary, so it does not flicker.', 'Only normal text sessions count (not Symbols), and each session is weighted by its length: a 10-word drill barely moves your level, a long run moves it more (up to about 400 characters). A lesson or passage repeated on the same day counts once, with your best run. The five bars show all levels: filled means reached, empty means still to come.']],
+  ['pass', 'Passing a lesson', ['A lesson is passed when you reach {pass} (set in Settings).', 'After a pass, Tab or Enter goes to the next lesson. If you did not pass, Tab repeats the lesson. Missed words can be replayed 5 times each.', 'Weak-spot words mixed in do not count towards the pass mark.']],
+  ['stages', 'Advanced stages', ['18 optional stages from 45 to 110 WPM: steps of 5 up to 80, then steps of 3. They never affect normal practice.', 'Each lesson is {stageWords} words. To unlock the next stage, finish {stageLessons} lessons where at least 90% reach the stage speed with {stageLow}% accuracy ({stageHigh}% from 86 WPM).', 'The first stage lesson each day is a slow warm-up and does not count.']],
   ['weak', 'Weak keys and automatic practice', ['From your last 20 sessions the app finds weak keys, slow letter pairs and slow words, and mixes them into your lessons automatically.', 'Trigram and tetragram lessons use only real, common letter groups taken from everyday English words.']],
   ['keys', 'Keys and shortcuts', ['Backspace fixes the last letter; mistakes still count against accuracy. In strict mode Backspace only clears the red mark.', 'Esc restarts the lesson. Tab goes to the next lesson after a pass. Enter also continues.', 'You can hide upcoming words (shown as grey blocks) to train looking ahead less.']],
-  ['pause', 'Pause when you stop typing', ['If you stop for 3 seconds (change it in Settings: off, 2, 3, 5 or 10) the app pauses and shows "Press any key to continue ...".', 'Paused time is not counted in WPM, daily minutes or the timed-test clock. A break reminder appears after 25 minutes of typing.']],
+  ['pause', 'Pause when you stop typing', ['{afk} The pause shows "Press any key to continue ...". You can change it in Settings (off, 2, 3, 5 or 10 seconds).', 'Paused time is not counted in WPM, daily minutes or the timed-test clock. {brk}']],
   ['goal', 'Daily goal, streak and calendar', ['Set your daily goal in minutes. Progress resets at midnight.', 'Daily Practice splits the goal: warm-up 15%, lessons 40%, timed tests 25%, real text 20%.', 'A streak counts consecutive days with practice. The 12-week calendar and the road-to-your-goal forecast appear in Progress; the forecast needs at least 5 practice days.']],
   ['safe', 'Backups, sync, passwords and Touch ID', ['A backup is saved automatically every week in Documents\\Afrad Typer\\Backups. You can also choose a sync folder (for example OneDrive) in Progress.', 'Passwords are per user and cannot be recovered. They keep other people out of your profile but are not encryption.', 'Touch ID is available in the Mac app only.']]
 ];
 let guideOpen = 'level';
+function guideFill(x) {
+  const s = S_();
+  return x.replace('{pass}', s.minWPM + ' WPM and ' + s.minAccuracy + '% accuracy').replace('{stageWords}', s.stageMinWords).replace('{stageLessons}', s.stageMinLessons)
+    .replace('{stageLow}', 97).replace('{stageHigh}', 96)
+    .replace('{afk}', s.afkSeconds > 0 ? 'If you stop typing for ' + s.afkSeconds + ' seconds the app pauses.' : 'Pausing is currently off.')
+    .replace('{brk}', s.breakReminder ? 'A break reminder appears after 25 minutes of typing.' : 'Break reminders are currently off.');
+}
 function renderGuide(p) {
   p.innerHTML = '<h2>How it works</h2><p class="muted">All the rules the app follows, in one place.</p>' + GUIDE.map(g =>
-    '<details class="gd" data-gid="' + g[0] + '"' + (g[0] === guideOpen ? ' open' : '') + '><summary>' + g[1] + '</summary>' + g[2].map(x => '<p>' + x + '</p>').join('') + '</details>').join('');
+    '<details class="gd" data-gid="' + g[0] + '"' + (g[0] === guideOpen ? ' open' : '') + '><summary>' + g[1] + '</summary>' + g[2].map(x => '<p>' + guideFill(x) + '</p>').join('') + '</details>').join('');
 }
 let goalEdit = false;
 function renderGoal() {

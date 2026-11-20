@@ -7,7 +7,7 @@ struct RoadAndCalendar: View {
 
     private var counted: [SessionRecord] {
         store.data.history
-            .filter { !$0.detail.hasPrefix("Warm-up") && !$0.detail.hasPrefix("Mistake replay") }
+            .filter { $0.isCounted }
             .sorted { $0.date < $1.date }
     }
 

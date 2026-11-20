@@ -195,35 +195,10 @@ struct LevelBox: View {
         (0, "Beginner", Color.blue)
     ]
 
-    private struct Assessment {
-        let wpm: Int
-        let accuracy: Double
-        let name: String
-        let color: Color
-        let held: Bool
-        let count: Int
-    }
-
-    private var recent: [SessionRecord] {
-        Array(store.data.history
-            .filter { !$0.detail.hasPrefix("Warm-up") && !$0.detail.hasPrefix("Mistake replay") }
-            .sorted { $0.date < $1.date }
-            .suffix(30))
-    }
-
-    /// Median speed (so a few odd runs do not move it), then one level lower below 95% accuracy and two below 90%.
-    private func assess(_ last: [SessionRecord]) -> Assessment? {
-        guard last.count >= 10 else { return nil }
-        let ws = last.map { $0.wpm }.sorted()
-        let m = ws.count / 2
-        let med = ws.count % 2 == 1 ? ws[m] : (ws[m - 1] + ws[m]) / 2
-        let wpm = Int(med.rounded())
-        let acc = last.map { $0.accuracy }.reduce(0, +) / Double(last.count)
-        let base = LevelBox.levels.firstIndex(where: { wpm >= $0.0 }) ?? (LevelBox.levels.count - 1)
-        let drop = acc < 90 ? 2 : (acc < 95 ? 1 : 0)
-        let idx = min(LevelBox.levels.count - 1, base + drop)
-        let lv = LevelBox.levels[idx]
-        return Assessment(wpm: wpm, accuracy: acc, name: lv.1, color: lv.2, held: idx > base, count: last.count)
+    private var assessment: LevelCalc.Result? {
+        LevelCalc.assess(store.data.history,
+                         storedTier: store.data.settings.levelTier,
+                         storedPlain: store.data.settings.levelTierPlain)
     }
 
     private func tile(_ value: String, _ label: String) -> some View {
@@ -256,17 +231,18 @@ struct LevelBox: View {
     }
 
     var body: some View {
-        let last = recent
-        let result = assess(last)
+        let result = assessment
+        let count = LevelCalc.sessions(store.data.history).count
         return VStack(alignment: .leading, spacing: 6) {
             if let a = result {
+                let lv = LevelBox.levels[a.tier]
                 HStack {
-                    Text(a.name)
+                    Text(lv.1)
                         .font(.caption.weight(.bold))
                         .foregroundColor(.black)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 2)
-                        .background(Capsule().fill(a.color))
+                        .background(Capsule().fill(lv.2))
                     Spacer()
                     Button(action: onHelp) {
                         Image(systemName: "questionmark.circle").foregroundColor(.secondary)
@@ -274,22 +250,22 @@ struct LevelBox: View {
                     .buttonStyle(.plain)
                     .help("How levels work")
                 }
-                levelBars(current: a.name)
+                levelBars(current: lv.1)
                 HStack(spacing: 8) {
                     tile("\(a.wpm)", "WPM")
                     tile(String(format: "%.1f%%", a.accuracy), "Accuracy")
                 }
-                if a.held {
+                if a.tier > a.plainTier {
                     Text("Held back by accuracy (needs 95%)").font(.caption2).foregroundColor(.secondary)
                 }
             } else {
                 Text("YOUR LEVEL").font(.caption2).foregroundColor(.secondary)
-                Text("Do 10 sessions to get your level (\(last.count) / 10).").font(.caption).foregroundColor(.secondary)
+                Text("Do 10 sessions to get your level (\(count) / 10).").font(.caption).foregroundColor(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.12)))
-        .help("Median speed and average accuracy of your last 30 sessions")
+        .help("Median speed and average accuracy of your last 30 counted sessions")
     }
 }

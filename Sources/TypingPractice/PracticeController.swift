@@ -476,7 +476,7 @@ final class PracticeController: ObservableObject {
             timeLimit = 0
             if s.warmupEnabled && s.warmupDay != Store.dayKey() {
                 isWarmup = true
-                let recent = store.data.history.filter { !$0.detail.hasPrefix("Warm-up") && !$0.detail.hasPrefix("Mistake replay") }.suffix(10)
+                let recent = store.data.history.filter { $0.isCounted }.suffix(10)
                 let avg = recent.isEmpty ? 40 : recent.map { $0.wpm }.reduce(0, +) / Double(recent.count)
                 warmupPace = max(20, Int((avg * 0.7 / 5).rounded()) * 5)
                 text = LessonBuilder.timedText(pool: 1000, count: 40)
@@ -982,9 +982,12 @@ final class PracticeController: ObservableObject {
                 rawWPM: rawWPM,
                 consistency: steady.count >= 10 ? consistency : nil,
                 pairs: topPairs(limit: 20),
-                words: topWords(limit: 25)
+                words: topWords(limit: 25),
+                warm: isWarmup,
+                replay: isReplay
             )
             store.data.history.append(record)
+            LevelCalc.commit(store)
         }
 
         if isStage {

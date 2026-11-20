@@ -2,26 +2,32 @@ import SwiftUI
 
 /// "How it works": every rule the app follows, in one place. Sections open and close.
 struct GuideView: View {
+    @EnvironmentObject var store: Store
     @StateObject private var open: Box<Set<String>>
 
     init(focus: String) {
         _open = StateObject(wrappedValue: Box<Set<String>>([focus]))
     }
 
-    private static let sections: [(String, String, [String])] = [
+    private var sections: [(String, String, [String])] {
+        let s = store.data.settings
+        let afk = s.afkSeconds > 0 ? "If you stop typing for \(s.afkSeconds) seconds the app pauses." : "Pausing is currently off."
+        let brk = s.breakReminder ? "A break reminder appears after \(s.breakMinutes) minutes of typing." : "Break reminders are currently off."
+        return [
         ("level", "Your level and tag", [
             "The tag is based on the median speed of your last 30 sessions (warm-ups and mistake replays are not counted). It needs at least 10 sessions.",
             "Beginner: below 40 WPM. Intermediate: 40\u{2013}59. Advanced: 60\u{2013}79. Pro: 80\u{2013}99. Pro Max: 100+.",
-            "Accuracy matters: if your average accuracy is below 95% you drop one level, below 90% two levels. The five bars under the tag show all levels: filled means reached, empty means still to come."
+            "Accuracy matters: below 95% average accuracy, your speed counts for proportionally less (at 90% accuracy, 80 WPM counts as about 72). The tag only changes when you are 2 WPM past a boundary, so it does not flicker.",
+            "Only normal text sessions count (not numbers & symbols or single weak-spot drills), and each session is weighted by its length: a 10-word drill barely moves your level, a long run moves it more (up to about 400 characters). A lesson or passage repeated on the same day counts once, with your best run. The five bars show all levels: filled means reached, empty means still to come."
         ]),
         ("pass", "Passing a lesson", [
-            "A lesson is passed when you reach the pass speed and accuracy set in Settings (default 30 WPM and 95%).",
+            "A lesson is passed when you reach \(s.minWPM) WPM and \(s.minAccuracy)% accuracy (set in Settings).",
             "After a pass, Tab or Return goes to the next lesson. If you did not pass, Tab repeats the lesson. Missed words can be replayed 5 times each.",
             "Weak-spot words mixed in do not count towards the pass mark."
         ]),
         ("stages", "Advanced stages", [
             "18 optional stages from 45 to 110 WPM: steps of 5 up to 80, then steps of 3. They never affect normal practice.",
-            "Each lesson is 200 words. To unlock the next stage, finish 30 lessons where at least 90% reach the stage speed with 97% accuracy (96% from 86 WPM).",
+            "Each lesson is \(s.stageMinWords) words. To unlock the next stage, finish \(s.stageMinLessons) lessons where at least 90% reach the stage speed with \(s.stageAccuracyLow)% accuracy (\(s.stageAccuracyHigh)% from 86 WPM).",
             "The first stage lesson each day is a slow warm-up and does not count."
         ]),
         ("weak", "Weak keys and automatic practice", [
@@ -34,8 +40,8 @@ struct GuideView: View {
             "You can hide upcoming words (shown as grey blocks) to train looking ahead less."
         ]),
         ("pause", "Pause when you stop typing", [
-            "If you stop for 3 seconds (change it in Settings: off, 2, 3, 5 or 10) the app pauses and shows \"Press any key to continue ...\".",
-            "Paused time is not counted in WPM, daily minutes or the timed-test clock. A break reminder appears after 25 minutes of typing."
+            "\(afk) The pause shows \"Press any key to continue ...\". You can change it in Settings (off, 2, 3, 5 or 10 seconds).",
+            "Paused time is not counted in WPM, daily minutes or the timed-test clock. \(brk)"
         ]),
         ("goal", "Daily goal, streak and calendar", [
             "Set your daily goal in minutes. Progress resets at midnight.",
@@ -47,7 +53,8 @@ struct GuideView: View {
             "Passwords are per user and cannot be recovered. They keep other people out of your profile but are not encryption.",
             "Touch ID is optional: once you have a password you can also unlock with Touch ID, from the picture menu."
         ])
-    ]
+        ]
+    }
 
     private func isOpen(_ id: String) -> Bool { open.value.contains(id) }
 
@@ -60,7 +67,7 @@ struct GuideView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("How it works").font(.largeTitle.bold())
                 Text("All the rules the app follows, in one place.").foregroundColor(.secondary)
-                ForEach(GuideView.sections, id: \.0) { sec in
+                ForEach(sections, id: \.0) { sec in
                     VStack(alignment: .leading, spacing: 8) {
                         Button(action: { toggle(sec.0) }) {
                             HStack {

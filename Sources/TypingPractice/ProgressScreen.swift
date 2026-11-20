@@ -13,7 +13,7 @@ struct ProgressScreen: View {
     }
 
     private var filtered: [SessionRecord] {
-        let sorted = store.data.history.filter { !$0.detail.hasPrefix("Warm-up") && !$0.detail.hasPrefix("Mistake replay") }.sorted { $0.date < $1.date }
+        let sorted = store.data.history.filter { $0.isCounted }.sorted { $0.date < $1.date }
         return filterBox.value == "All" ? sorted : sorted.filter { $0.mode == filterBox.value }
     }
 

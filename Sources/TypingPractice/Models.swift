@@ -60,6 +60,14 @@ struct SessionRecord: Codable, Identifiable {
     var consistency: Double? = nil
     var pairs: [String: KeyStat]? = nil
     var words: [String: KeyStat]? = nil
+    var warm: Bool? = nil
+    var replay: Bool? = nil
+
+    /// Not a warm-up or a mistake replay. Older records (before the flags existed) are recognised by their label.
+    var isCounted: Bool {
+        if warm == true || replay == true { return false }
+        return !detail.hasPrefix("Warm-up") && !detail.hasPrefix("Mistake replay")
+    }
 }
 
 struct Passage: Codable, Identifiable {
@@ -116,6 +124,9 @@ struct AppSettings: Codable, Equatable {
     var stageMinWords: Int = 200
     var stageLadderVersion: Int = 3
     var focusMode: Bool = false
+    /// Remembered level (index) so the tag has a small buffer and does not flicker.
+    var levelTier: Int? = nil
+    var levelTierPlain: Int? = nil
 
     init() {}
 
@@ -162,6 +173,8 @@ struct AppSettings: Codable, Equatable {
         autoPace = try c.decodeIfPresent(Bool.self, forKey: .autoPace) ?? true
         afkSeconds = try c.decodeIfPresent(Int.self, forKey: .afkSeconds) ?? 3
         stageMinLessons = try c.decodeIfPresent(Int.self, forKey: .stageMinLessons) ?? 30
+        levelTier = try c.decodeIfPresent(Int.self, forKey: .levelTier)
+        levelTierPlain = try c.decodeIfPresent(Int.self, forKey: .levelTierPlain)
         stageMinWords = try c.decodeIfPresent(Int.self, forKey: .stageMinWords) ?? 200
         let ver = try c.decodeIfPresent(Int.self, forKey: .stageLadderVersion) ?? 1
         if ver < 2 {
