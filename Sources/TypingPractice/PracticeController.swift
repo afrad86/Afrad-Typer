@@ -173,11 +173,11 @@ final class PracticeController: ObservableObject {
         let hidden = hiddenWords()
         var out = AttributedString()
         for i in r where i < target.count && i < states.count {
-            var shown = String(target[i])
+            var isHidden = false
             if let h = hidden, i > pos, i < wordIndexAt.count, wordIndexAt[i] >= 0, h.contains(wordIndexAt[i]) {
-                shown = "•"
+                isHidden = true
             }
-            var piece = AttributedString(shown)
+            var piece = AttributedString(String(target[i]))
             switch states[i] {
             case .untyped:
                 piece.foregroundColor = Color.secondary
@@ -186,6 +186,11 @@ final class PracticeController: ObservableObject {
             case .wrong:
                 piece.foregroundColor = Color(nsColor: .systemRed)
                 piece.backgroundColor = Color(nsColor: .systemRed).opacity(0.25)
+            }
+            if isHidden {
+                // Upcoming words you chose to hide: a plain grey block, no readable letters, same width as the word.
+                piece.foregroundColor = Color.clear
+                piece.backgroundColor = Color.secondary.opacity(0.22)
             }
             if let g = ghost, g == i {
                 piece.backgroundColor = Color.orange.opacity(0.4)
