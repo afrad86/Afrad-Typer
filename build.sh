@@ -55,6 +55,9 @@ rm -rf "$BUNDLE.app" "TypingPractice.app" "$BUNDLE.zip" "TypingPractice.zip"
 mkdir -p "$BUNDLE.app/Contents/MacOS" "$BUNDLE.app/Contents/Resources"
 cp "$OUT/$EXE" "$BUNDLE.app/Contents/MacOS/$EXE"
 cp Resources/Info.plist "$BUNDLE.app/Contents/Info.plist"
+if [ -f Resources/Logo.png ]; then
+  cp Resources/Logo.png "$BUNDLE.app/Contents/Resources/Logo.png"
+fi
 if [ -f "$OUT/AppIcon.icns" ]; then
   cp "$OUT/AppIcon.icns" "$BUNDLE.app/Contents/Resources/AppIcon.icns"
 fi

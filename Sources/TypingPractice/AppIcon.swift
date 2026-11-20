@@ -2,8 +2,15 @@ import SwiftUI
 import AppKit
 
 enum AppIcon {
+    /// The circular portrait logo, shipped inside the app as Logo.png.
+    static let logo: NSImage? = {
+        guard let url = Bundle.main.url(forResource: "Logo", withExtension: "png") else { return nil }
+        return NSImage(contentsOf: url)
+    }()
+
     /// The "A" app icon, drawn in code so the Dock shows it while the app is running.
     static func make(size: CGFloat = 512) -> NSImage {
+        if let l = logo { return l }
         return NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
             let inset = rect.insetBy(dx: size * 0.06, dy: size * 0.06)
             let path = NSBezierPath(roundedRect: inset, xRadius: size * 0.22, yRadius: size * 0.22)
@@ -26,22 +33,100 @@ enum AppIcon {
 struct AfradLogo: View {
     var body: some View {
         HStack(spacing: 8) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(white: 0.31), Color(white: 0.25)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+            if let l = AppIcon.logo {
+                Image(nsImage: l)
+                    .resizable()
+                    .frame(width: 34, height: 34)
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(white: 0.31), Color(white: 0.25)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                Text("A")
-                    .font(.system(size: 20, weight: .heavy, design: .rounded))
-                    .foregroundColor(Color(red: 1.0, green: 0.596, blue: 0.0))
+                    Text("A")
+                        .font(.system(size: 20, weight: .heavy, design: .rounded))
+                        .foregroundColor(Color(red: 1.0, green: 0.596, blue: 0.0))
+                }
+                .frame(width: 30, height: 30)
             }
-            .frame(width: 30, height: 30)
             Text("Afrad")
                 .font(.system(size: 20, weight: .bold, design: .rounded))
+        }
+    }
+}
+
+/// Copyright line shown in the sidebar and on the user screen.
+struct CopyrightLabel: View {
+    var body: some View {
+        Text("\u{00A9} 2026 Hassan Afrad. All rights reserved.")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+    }
+}
+
+/// A round user picture with a thin orange ring; a plain person icon if no picture was chosen.
+struct AvatarView: View {
+    let image: NSImage?
+    var size: CGFloat = 26
+
+    var body: some View {
+        Group {
+            if let img = image {
+                Image(nsImage: img)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(Color(red: 1.0, green: 0.596, blue: 0.0), lineWidth: 1.5))
+            } else {
+                Image(systemName: "person.crop.circle.fill")
+                    .resizable()
+                    .frame(width: size, height: size)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+/// Click the picture to choose or remove it, or to manage the password.
+struct AvatarMenu: View {
+    @EnvironmentObject var session: AppSession
+    let profile: ProfileInfo
+    var size: CGFloat = 26
+
+    /// A protected user can only be changed after signing in as that user.
+    private var allowed: Bool { !profile.locked || session.current?.id == profile.id }
+    private var signedInAsThis: Bool { session.current?.id == profile.id }
+
+    var body: some View {
+        if allowed {
+            Menu {
+                Button("Choose picture\u{2026}") { session.chooseAvatar(for: profile) }
+                if session.avatar(for: profile) != nil {
+                    Button("Remove picture") { session.removeAvatar(for: profile) }
+                }
+                if signedInAsThis {
+                    Divider()
+                    if profile.locked {
+                        Button("Change password\u{2026}") { session.changePassword(for: profile) }
+                        Button("Remove password\u{2026}") { session.removePassword(for: profile) }
+                    } else {
+                        Button("Set a password\u{2026}") { session.changePassword(for: profile) }
+                    }
+                }
+            } label: {
+                AvatarView(image: session.avatar(for: profile), size: size)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help("Click to change your picture or password")
+        } else {
+            AvatarView(image: session.avatar(for: profile), size: size)
         }
     }
 }

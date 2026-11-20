@@ -489,9 +489,9 @@ final class PracticeController: ObservableObject {
             isWarmup = false
             pendingBoostFlags = nil
             timeLimit = 0
-            text = rw.joined(separator: " ")
+            text = rw.flatMap { Array(repeating: $0, count: 5) }.joined(separator: " ")
             lessonLabel = "Mistake replay"
-            infoLine = "Retype the words you slipped on, once each."
+            infoLine = "Retype each word you slipped on 5 times in a row."
             detailText = "Mistake replay"
         }
 

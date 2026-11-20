@@ -564,7 +564,7 @@ struct PracticeView: View {
                         .font(.callout)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: 560)
-                    Button("Retype these words once") { c.startReplay() }
+                    Button("Retype these words 5 times") { c.startReplay() }
                 }
             }
             Text("Raw \(rawText) WPM  ·  Consistency \(consText)")

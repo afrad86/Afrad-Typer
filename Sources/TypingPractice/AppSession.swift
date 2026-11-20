@@ -1,10 +1,15 @@
 import SwiftUI
 import AppKit
+import CryptoKit
+import UniformTypeIdentifiers
 
 struct ProfileInfo: Codable, Identifiable, Equatable {
     var id: UUID = UUID()
     var name: String
     var file: String
+    /// Optional password, stored only as a salted hash ("salt:hash", both base64).
+    var pw: String? = nil
+    var locked: Bool { pw != nil }
 }
 
 /// Holds the list of users and the currently signed-in user's Store and PracticeController.
@@ -145,6 +150,147 @@ final class AppSession: ObservableObject {
         message = on ? "Sync is on. Turn it on at the user screen on your other Mac too." : ""
     }
 
+    // MARK: Passwords (optional, per user)
+
+    private static func hash(_ password: String, salt: Data) -> String {
+        var d = salt + Data(password.utf8)
+        for _ in 0..<20000 { d = Data(SHA256.hash(data: d)) }
+        return d.base64EncodedString()
+    }
+
+    private static func makePw(_ password: String) -> String {
+        var bytes = [UInt8](repeating: 0, count: 16)
+        for i in 0..<bytes.count { bytes[i] = UInt8.random(in: 0...255) }
+        let salt = Data(bytes)
+        return salt.base64EncodedString() + ":" + hash(password, salt: salt)
+    }
+
+    func verify(_ p: ProfileInfo, password: String) -> Bool {
+        guard let stored = (profiles.first(where: { $0.id == p.id }) ?? p).pw else { return true }
+        let parts = stored.split(separator: ":", maxSplits: 1).map(String.init)
+        guard parts.count == 2, let salt = Data(base64Encoded: parts[0]) else { return false }
+        return AppSession.hash(password, salt: salt) == parts[1]
+    }
+
+    private func notice(_ title: String, _ text: String = "") {
+        let a = NSAlert()
+        a.messageText = title
+        a.informativeText = text
+        a.addButton(withTitle: "OK")
+        a.runModal()
+    }
+
+    private func askPasswords(_ title: String, _ text: String, labels: [String], ok: String = "OK") -> [String]? {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = text
+        alert.addButton(withTitle: ok)
+        alert.addButton(withTitle: "Cancel")
+        let rowH: CGFloat = 32
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 280, height: rowH * CGFloat(labels.count)))
+        var fields: [NSSecureTextField] = []
+        for (i, l) in labels.enumerated() {
+            let f = NSSecureTextField(frame: NSRect(x: 0, y: CGFloat(labels.count - 1 - i) * rowH + 4, width: 280, height: 24))
+            f.placeholderString = l
+            container.addSubview(f)
+            fields.append(f)
+        }
+        alert.accessoryView = container
+        alert.window.initialFirstResponder = fields.first
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+        return fields.map { $0.stringValue }
+    }
+
+    /// Asks for the current password; true when it is right (or the user has none).
+    private func confirmPassword(_ p: ProfileInfo, why: String) -> Bool {
+        guard p.locked else { return true }
+        guard let v = askPasswords("Password for \(p.name)", why, labels: ["Password"]) else { return false }
+        if verify(p, password: v[0]) { return true }
+        notice("Wrong password")
+        return false
+    }
+
+    /// Set or change a user's password.
+    func changePassword(for p: ProfileInfo) {
+        guard let i = profiles.firstIndex(where: { $0.id == p.id }) else { return }
+        guard confirmPassword(profiles[i], why: "Enter your current password.") else { return }
+        guard let v = askPasswords(profiles[i].locked ? "New password" : "Set a password",
+                                   "If you forget it, it cannot be recovered.",
+                                   labels: ["New password", "Repeat password"], ok: "Save") else { return }
+        guard v[0].count >= 4 else { notice("Too short", "Use at least 4 characters."); return }
+        guard v[0] == v[1] else { notice("The two passwords do not match"); return }
+        profiles[i].pw = AppSession.makePw(v[0])
+        saveIndex()
+        if current?.id == p.id { current = profiles[i] }
+        objectWillChange.send()
+    }
+
+    func removePassword(for p: ProfileInfo) {
+        guard let i = profiles.firstIndex(where: { $0.id == p.id }), profiles[i].locked else { return }
+        guard confirmPassword(profiles[i], why: "Enter your current password to remove it.") else { return }
+        profiles[i].pw = nil
+        saveIndex()
+        if current?.id == p.id { current = profiles[i] }
+        objectWillChange.send()
+    }
+
+    /// Signs in; a protected user must enter the password first.
+    func requestSignIn(_ p: ProfileInfo) {
+        guard confirmPassword(p, why: "Enter the password to open this user.") else { return }
+        signIn(p)
+    }
+
+    /// Deleting a protected user also needs the password.
+    func canDelete(_ p: ProfileInfo) -> Bool {
+        confirmPassword(p, why: "Enter the password to delete this user and all their data.")
+    }
+
+    // MARK: Profile pictures
+
+    private var avatarCache: [UUID: NSImage] = [:]
+
+    private func avatarURL(_ p: ProfileInfo) -> URL {
+        profilesDir.appendingPathComponent(p.file + ".avatar.png")
+    }
+
+    /// The user's own picture, if they chose one.
+    func avatar(for p: ProfileInfo) -> NSImage? {
+        if let c = avatarCache[p.id] { return c }
+        guard let img = NSImage(contentsOf: avatarURL(p)) else { return nil }
+        avatarCache[p.id] = img
+        return img
+    }
+
+    /// Lets the user pick a picture; it is cropped to a square and shrunk to 256 px.
+    func chooseAvatar(for p: ProfileInfo) {
+        let panel = NSOpenPanel()
+        panel.title = "Choose a picture for \(p.name)"
+        panel.allowedContentTypes = [.png, .jpeg, .heic, .tiff, .gif, .bmp]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK, let url = panel.url, let src = NSImage(contentsOf: url) else { return }
+        let side: CGFloat = 256
+        let w = src.size.width, h = src.size.height
+        guard w > 0, h > 0 else { return }
+        let s = min(w, h)
+        let crop = NSRect(x: (w - s) / 2, y: (h - s) / 2, width: s, height: s)
+        let out = NSImage(size: NSSize(width: side, height: side))
+        out.lockFocus()
+        src.draw(in: NSRect(x: 0, y: 0, width: side, height: side), from: crop, operation: .copy, fraction: 1)
+        out.unlockFocus()
+        guard let tiff = out.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
+              let png = rep.representation(using: .png, properties: [:]) else { return }
+        try? png.write(to: avatarURL(p), options: .atomic)
+        avatarCache[p.id] = out
+        objectWillChange.send()
+    }
+
+    func removeAvatar(for p: ProfileInfo) {
+        try? FileManager.default.removeItem(at: avatarURL(p))
+        avatarCache[p.id] = nil
+        objectWillChange.send()
+    }
+
     // MARK: Users
 
     func signIn(_ p: ProfileInfo) {
@@ -183,6 +329,7 @@ final class AppSession: ObservableObject {
     func deleteUser(_ p: ProfileInfo) {
         profiles.removeAll { $0.id == p.id }
         try? FileManager.default.removeItem(at: profilesDir.appendingPathComponent(p.file))
+        removeAvatar(for: p)
         if lastID == p.id { lastID = profiles.first?.id }
         saveIndex()
     }
@@ -218,18 +365,22 @@ struct ProfilePickerView: View {
             VStack(spacing: 8) {
                 ForEach(session.profiles) { p in
                     HStack {
+                        AvatarMenu(profile: p, size: 34)
                         if p.id == session.lastID {
-                            Button(p.name) { session.signIn(p) }
+                            Button(p.name) { session.requestSignIn(p) }
                                 .keyboardShortcut(.defaultAction)
                                 .controlSize(.large)
                                 .frame(width: 240)
                         } else {
-                            Button(p.name) { session.signIn(p) }
+                            Button(p.name) { session.requestSignIn(p) }
                                 .controlSize(.large)
                                 .frame(width: 240)
                         }
+                        if p.locked {
+                            Image(systemName: "lock.fill").foregroundStyle(.secondary)
+                        }
                         Button {
-                            confirm.value = p
+                            if session.canDelete(p) { confirm.value = p }
                         } label: {
                             Image(systemName: "trash")
                         }
@@ -274,6 +425,7 @@ struct ProfilePickerView: View {
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color.red.opacity(0.12)))
             }
+            CopyrightLabel()
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

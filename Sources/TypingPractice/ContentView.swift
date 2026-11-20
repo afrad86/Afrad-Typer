@@ -35,6 +35,7 @@ struct ContentView: View {
     }
 
     var body: some View {
+        VStack(spacing: 0) {
         HStack(spacing: 0) {
             if !hideSidebar {
                 VStack(alignment: .leading, spacing: 0) {
@@ -49,7 +50,11 @@ struct ContentView: View {
                     }
                     .listStyle(.sidebar)
                     HStack {
-                        Image(systemName: "person.circle")
+                        if let cur = session.current {
+                            AvatarMenu(profile: cur)
+                        } else {
+                            Image(systemName: "person.circle")
+                        }
                         Text(userName).lineLimit(1)
                         Spacer()
                         Button("Switch user") { session.signOut() }
@@ -62,6 +67,11 @@ struct ContentView: View {
             }
             detail
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        Divider()
+        CopyrightLabel()
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
         }
         .onAppear {
             NSApp.applicationIconImage = AppIcon.make()

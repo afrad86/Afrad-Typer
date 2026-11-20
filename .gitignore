@@ -5,3 +5,6 @@
 *.xcuserstate
 xcuserdata/
 !release/Afrad-Typer.zip
+node_modules/
+windows-web/dist/
+!release/Afrad-Typer-Windows.exe

@@ -1,0 +1,18 @@
+{
+  "name": "afrad-typer",
+  "version": "1.4.0",
+  "description": "Afrad Typer - typing practice",
+  "main": "main.js",
+  "author": "Hassan Afrad",
+  "license": "UNLICENSED",
+  "scripts": { "start": "electron .", "dist": "electron-builder --win portable" },
+  "devDependencies": { "electron": "^33.0.0", "electron-builder": "^25.0.0" },
+  "build": {
+    "appId": "org.afrad.typer",
+    "copyright": "Copyright © 2026 Hassan Afrad. All rights reserved.",
+    "productName": "Afrad Typer",
+    "files": ["index.html", "style.css", "data.js", "core.js", "ui.js", "main.js", "icon.png", "logo-96.png", "logo-256.png", "package.json"],
+    "win": { "target": "portable", "icon": "icon.png", "artifactName": "Afrad-Typer-Windows.exe" },
+    "directories": { "output": "dist" }
+  }
+}
