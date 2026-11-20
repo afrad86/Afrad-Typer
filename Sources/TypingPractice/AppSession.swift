@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import CryptoKit
+import LocalAuthentication
 import UniformTypeIdentifiers
 
 struct ProfileInfo: Codable, Identifiable, Equatable {
@@ -9,6 +10,8 @@ struct ProfileInfo: Codable, Identifiable, Equatable {
     var file: String
     /// Optional password, stored only as a salted hash ("salt:hash", both base64).
     var pw: String? = nil
+    /// Also unlock with Touch ID (only meaningful while a password is set).
+    var touchID: Bool? = nil
     var locked: Bool { pw != nil }
 }
 
@@ -229,6 +232,7 @@ final class AppSession: ObservableObject {
         guard let i = profiles.firstIndex(where: { $0.id == p.id }), profiles[i].locked else { return }
         guard confirmPassword(profiles[i], why: "Enter your current password to remove it.") else { return }
         profiles[i].pw = nil
+        profiles[i].touchID = nil
         saveIndex()
         if current?.id == p.id { current = profiles[i] }
         objectWillChange.send()
@@ -236,8 +240,71 @@ final class AppSession: ObservableObject {
 
     /// Signs in; a protected user must enter the password first.
     func requestSignIn(_ p: ProfileInfo) {
-        guard confirmPassword(p, why: "Enter the password to open this user.") else { return }
-        signIn(p)
+        let cur = profiles.first(where: { $0.id == p.id }) ?? p
+        if cur.locked && cur.touchID == true && AppSession.touchIDAvailable {
+            // Touch ID first; if it is cancelled or not recognised, fall back to the password box.
+            runTouchID("Open \(cur.name)'s typing progress") { [weak self] ok in
+                guard let self = self else { return }
+                if ok {
+                    self.signIn(cur)
+                } else if self.confirmPassword(cur, why: "Enter the password to open this user.") {
+                    self.signIn(cur)
+                }
+            }
+            return
+        }
+        guard confirmPassword(cur, why: "Enter the password to open this user.") else { return }
+        signIn(cur)
+    }
+
+    // MARK: Touch ID (optional, on top of the password)
+
+    /// True on Macs with Touch ID that has at least one fingerprint saved.
+    static var touchIDAvailable: Bool {
+        var err: NSError?
+        return LAContext().canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &err)
+    }
+
+    private var touchContext: LAContext? = nil
+
+    /// Shows the system Touch ID prompt; the answer arrives on the main thread.
+    private func runTouchID(_ reason: String, done: @escaping (Bool) -> Void) {
+        let ctx = LAContext()
+        ctx.localizedCancelTitle = "Use password\u{2026}"
+        touchContext = ctx
+        var err: NSError?
+        guard ctx.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &err) else {
+            DispatchQueue.main.async { done(false) }
+            return
+        }
+        ctx.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, _ in
+            DispatchQueue.main.async { done(success) }
+        }
+    }
+
+    /// Turns Touch ID sign-in on or off for a user who has a password.
+    func setTouchID(for p: ProfileInfo, on: Bool) {
+        guard let i = profiles.firstIndex(where: { $0.id == p.id }), profiles[i].locked else { return }
+        if !on {
+            profiles[i].touchID = nil
+            saveIndex()
+            if current?.id == p.id { current = profiles[i] }
+            objectWillChange.send()
+            return
+        }
+        guard AppSession.touchIDAvailable else {
+            notice("Touch ID is not available", "This Mac has no Touch ID, or no fingerprint is saved in System Settings.")
+            return
+        }
+        guard confirmPassword(profiles[i], why: "Enter your password to turn on Touch ID.") else { return }
+        let id = p.id
+        runTouchID("Turn on Touch ID for \(p.name)") { [weak self] ok in
+            guard let self = self, ok, let j = self.profiles.firstIndex(where: { $0.id == id }) else { return }
+            self.profiles[j].touchID = true
+            self.saveIndex()
+            if self.current?.id == id { self.current = self.profiles[j] }
+            self.objectWillChange.send()
+        }
     }
 
     /// Deleting a protected user also needs the password.
@@ -378,6 +445,9 @@ struct ProfilePickerView: View {
                         }
                         if p.locked {
                             Image(systemName: "lock.fill").foregroundStyle(.secondary)
+                            if p.touchID == true && AppSession.touchIDAvailable {
+                                Image(systemName: "touchid").foregroundStyle(.secondary)
+                            }
                         }
                         Button {
                             if session.canDelete(p) { confirm.value = p }

@@ -130,6 +130,12 @@ struct AvatarMenu: View {
                         if profile.locked {
                             Button("Change password\u{2026}") { run { session.changePassword(for: profile) } }
                             Button("Remove password\u{2026}") { run { session.removePassword(for: profile) } }
+                            if AppSession.touchIDAvailable {
+                                Divider()
+                                Button(profile.touchID == true ? "\u{2713} Also unlock with Touch ID" : "Also unlock with Touch ID") {
+                                    run { session.setTouchID(for: profile, on: profile.touchID != true) }
+                                }
+                            }
                         } else {
                             Button("Set a password\u{2026}") { run { session.changePassword(for: profile) } }
                         }
