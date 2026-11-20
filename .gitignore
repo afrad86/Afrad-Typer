@@ -1,0 +1,7 @@
+.DS_Store
+*.app/
+*.zip
+.build/
+*.xcuserstate
+xcuserdata/
+!release/Afrad-Typer.zip
