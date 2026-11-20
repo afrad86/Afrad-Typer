@@ -2,9 +2,7 @@
 
 # Afrad Typer
 
-[![Download for MacOS](Resources/badge-mac.svg)](https://github.com/afrad86/Afrad-Typer/raw/main/release/Afrad-Typer.zip) [![Download for Windows](Resources/badge-windows.svg)](https://github.com/afrad86/Afrad-Typer/raw/main/release/Afrad-Typer-Windows.exe)
-
-(If the repository is private, sign in to GitHub first.)
+[![Download for MacOS](Resources/badge-macos.svg)](https://github.com/afrad86/Afrad-Typer/raw/main/release/Afrad-Typer.zip) [![Download for Windows](Resources/badge-win.svg)](https://github.com/afrad86/Afrad-Typer/raw/main/release/Afrad-Typer-Windows.exe)
 
 ## Install
 
