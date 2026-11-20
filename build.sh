@@ -26,7 +26,7 @@ done
 
 if [ "${#ARCHES[@]}" -eq 0 ]; then
   echo ""
-  echo "Build failed. Copy the error messages above and send them to Claude."
+  echo "Build failed. Copy the error messages above."
   exit 1
 fi
 

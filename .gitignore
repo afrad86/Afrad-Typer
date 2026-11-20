@@ -8,3 +8,4 @@ xcuserdata/
 node_modules/
 windows-web/dist/
 !release/Afrad-Typer-Windows.exe
+Claude outputs/
