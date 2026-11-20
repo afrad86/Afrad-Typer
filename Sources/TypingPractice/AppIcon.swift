@@ -96,6 +96,7 @@ struct AvatarView: View {
 /// Click the picture to choose or remove it, or to manage the password.
 struct AvatarMenu: View {
     @EnvironmentObject var session: AppSession
+    @StateObject private var open = Box<Bool>(false)
     let profile: ProfileInfo
     var size: CGFloat = 26
 
@@ -103,28 +104,39 @@ struct AvatarMenu: View {
     private var allowed: Bool { !profile.locked || session.current?.id == profile.id }
     private var signedInAsThis: Bool { session.current?.id == profile.id }
 
+    /// Closes the pop-up first, then runs the action (some actions open their own windows).
+    private func run(_ action: @escaping () -> Void) {
+        open.value = false
+        DispatchQueue.main.async { action() }
+    }
+
     var body: some View {
         if allowed {
-            Menu {
-                Button("Choose picture\u{2026}") { session.chooseAvatar(for: profile) }
-                if session.avatar(for: profile) != nil {
-                    Button("Remove picture") { session.removeAvatar(for: profile) }
-                }
-                if signedInAsThis {
-                    Divider()
-                    if profile.locked {
-                        Button("Change password\u{2026}") { session.changePassword(for: profile) }
-                        Button("Remove password\u{2026}") { session.removePassword(for: profile) }
-                    } else {
-                        Button("Set a password\u{2026}") { session.changePassword(for: profile) }
-                    }
-                }
+            Button {
+                open.value.toggle()
             } label: {
                 AvatarView(image: session.avatar(for: profile), size: size)
             }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
+            .buttonStyle(.plain)
             .help("Click to change your picture or password")
+            .popover(isPresented: $open.value, arrowEdge: .bottom) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Button("Choose picture\u{2026}") { run { session.chooseAvatar(for: profile) } }
+                    if session.avatar(for: profile) != nil {
+                        Button("Remove picture") { run { session.removeAvatar(for: profile) } }
+                    }
+                    if signedInAsThis {
+                        Divider()
+                        if profile.locked {
+                            Button("Change password\u{2026}") { run { session.changePassword(for: profile) } }
+                            Button("Remove password\u{2026}") { run { session.removePassword(for: profile) } }
+                        } else {
+                            Button("Set a password\u{2026}") { run { session.changePassword(for: profile) } }
+                        }
+                    }
+                }
+                .padding(14)
+            }
         } else {
             AvatarView(image: session.avatar(for: profile), size: size)
         }
