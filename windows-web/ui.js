@@ -1,14 +1,14 @@
 'use strict';
 /* Afrad Typer (web) - typing engine and screens. */
 
-let tab = 'practice';
+let tab = 'today';
 let T = null;            // current session
 let timerId = null;
 let optsOpen = false;    // settings / options shown (a pop-up in Focus mode)
 let sitting = { wpms: [], typingSecs: 0, lastBreak: 0 };
 let lastPaceIdx = -1;
 
-const TABS = [['practice', 'Practice'], ['advanced', 'Advanced'], ['progress', 'Progress'], ['weak', 'Weak Spots'], ['library', 'Library']];
+const TABS = [['today', 'Daily Practice'], ['practice', 'Practice'], ['advanced', 'Advanced'], ['progress', 'Progress'], ['weak', 'Weak Spots'], ['library', 'Library']];
 
 /* ---------- sounds ---------- */
 let actx = null;
@@ -328,8 +328,31 @@ function renderAll() {
   renderTabs();
   $$('.pane').forEach(p => { p.hidden = true; });
   if (tab === 'practice' || tab === 'advanced') { $('#pane-practice').hidden = false; renderPractice(); }
-  else { const p = $('#pane-' + tab); p.hidden = false; ({ progress: renderProgress, weak: renderWeak, library: renderLibrary })[tab](p); }
+  else { const p = $('#pane-' + tab); p.hidden = false; ({ today: renderToday, progress: renderProgress, weak: renderWeak, library: renderLibrary })[tab](p); }
   $('#who').innerHTML = '<div class="whorow"><span data-act="avatar" title="Click to change your picture">' + avatarHtml(user) + '</span><span>' + esc(user) + '</span></div>' + (avatarOf(user) ? '<button class="link" data-act="avatar-remove">Remove picture</button>' : '<button class="link" data-act="avatar">Add a picture</button>') + (hasPw(user) ? '<button class="link" data-act="pw-change">Change password</button> <button class="link" data-act="pw-remove">Remove password</button>' : '<button class="link" data-act="pw-set">Set a password</button>') + '<button class="small" id="switch">Switch user</button>';
+}
+const PLAN = [
+  { key: 'warmup', mode: 'lessons', name: 'Lessons', title: 'Warm-up', detail: 'An easy lesson, slowly. Aim for 100% accuracy, not speed.', share: 0.15, offset: 0 },
+  { key: 'lessons', mode: 'lessons', name: 'Lessons', title: 'Lessons', detail: 'Your lessons, with your weak keys, pairs and words mixed in automatically.', share: 0.40, offset: 0.15 },
+  { key: 'timed', mode: 'timed', name: 'Timed', title: 'Timed tests', detail: 'Push your speed against the clock.', share: 0.25, offset: 0 },
+  { key: 'passages', mode: 'passages', name: 'Passages', title: 'Real text', detail: 'Relax into a steady rhythm on a whole passage.', share: 0.20, offset: 0 }
+];
+function renderToday(p) {
+  const s = S_(), goal = Math.max(1, s.dailyGoalMinutes || 20), todayMin = secondsToday() / 60, target = 100;
+  const hs = data.history.filter(isCounted).slice(-10), avg10 = hs.length ? hs.reduce((a, r) => a + r.wpm, 0) / hs.length : 0;
+  const mins = share => Math.max(1, Math.round(goal * share));
+  let first = null;
+  const rows = PLAN.map(it => {
+    const need = mins(it.share), off = it.offset > 0 ? mins(it.offset) : 0, done = Math.max(0, secondsToday(it.name) / 60 - off), fin = done >= need;
+    if (!fin && !first) first = it;
+    return '<div class="plan"><span class="chk' + (fin ? ' ok' : '') + '">' + (fin ? '✓' : '') + '</span><div class="grow"><b>' + it.title + ' — ' + Math.min(done, need).toFixed(0) + ' / ' + need + ' min</b><div class="muted">' + it.detail + '</div></div><button data-go="' + it.mode + '">' + (fin ? 'Again' : 'Start') + '</button></div>';
+  }).join('');
+  p.innerHTML = '<h2>Daily Practice</h2><p class="muted">' + new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) + '</p>' +
+    '<div class="row"><button class="primary" data-go="' + (first ? first.mode : 'lessons') + '">' + (first ? 'Start next step: ' + first.title : 'Practise more') + '</button></div>' +
+    '<div class="tiles">' + tile('Minutes today (goal ' + goal + ')', todayMin.toFixed(0)) + tile('Day streak', streakDays()) + tile('Average of last 10 (goal ' + target + ')', avg10.toFixed(0) + ' WPM') + '</div>' +
+    '<div class="bar"><i style="width:' + Math.min(100, todayMin / goal * 100).toFixed(0) + '%"></i></div>' +
+    '<div class="row"><label>Daily goal: <input type="number" data-input="dailyGoalMinutes" min="5" max="180" step="5" value="' + goal + '" style="width:70px"> minutes</label></div>' +
+    '<h3>Suggested session</h3><p class="muted">Short, focused practice beats long occasional sessions. Stay above 95% accuracy and your speed will follow.</p>' + rows;
 }
 function renderTabs() { $('#nav').innerHTML = TABS.map(t => '<button class="navbtn' + (t[0] === tab ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + '</button>').join(''); }
 
@@ -475,11 +498,12 @@ function renderProgress(p) {
   p.innerHTML = '<h2>Progress — ' + esc(user) + '</h2><div class="tiles">' + tile('Sessions', hs.length) + tile('Best WPM', best.toFixed(0)) + tile('Avg WPM (last 10)', avg.toFixed(0)) + tile('Avg accuracy (last 10)', avgA.toFixed(1) + '%') + tile('Typed today', mins.toFixed(0) + ' min') + tile('Day streak', streakDays()) + '</div>' +
     '<div class="charts"><canvas id="c1"></canvas><canvas id="c2"></canvas></div>' +
     '<div class="row"><button id="exp">Export backup</button> <label class="btn">Import backup<input type="file" id="imp" accept=".json" hidden></label> <button id="rst" class="danger">Reset history</button> <button id="del" class="danger">Delete this user</button></div>' +
-    '<p class="muted">Your progress is stored in this browser on this computer. Use Export backup to move it to another computer or keep a copy.</p>' +
+    '<p class="muted">Your progress is stored on this computer. Export backup saves a copy by hand.</p><div id="deskbox"></div>' +
     '<h3>Recent sessions</h3><table class="tbl"><tr><th>When</th><th>Mode</th><th>Details</th><th>WPM</th><th>Acc</th></tr>' +
     data.history.slice(-40).reverse().map(r => '<tr><td>' + new Date(r.t).toLocaleString() + '</td><td>' + esc(r.mode) + '</td><td>' + esc(r.detail) + '</td><td>' + r.wpm.toFixed(0) + '</td><td>' + r.accuracy.toFixed(1) + '%</td></tr>').join('') + '</table>';
   const series = hs.slice(-80);
   lineChart($('#c1'), series.map(r => r.wpm), getComputedStyle(document.body).getPropertyValue('--accent'), null, null, 'WPM, last ' + series.length + ' sessions');
+  if (window.renderDesktopBox) renderDesktopBox();
   lineChart($('#c2'), series.map(r => r.accuracy), '#5fb878', 80, 100, 'Accuracy %');
 }
 function renderWeak(p) {
@@ -508,6 +532,7 @@ document.addEventListener('click', e => {
   const t = e.target;
   let b;
   if ((b = t.closest('[data-tab]'))) { tab = b.dataset.tab; optsOpen = false; if (tab === 'practice' || tab === 'advanced') newSession(); else renderAll(); return; }
+  if ((b = t.closest('[data-go]'))) { S_().mode = b.dataset.go; save(); tab = 'practice'; newSession(); return; }
   if ((b = t.closest('[data-set]'))) { applyInput(b.dataset.set, b.dataset.num ? Number(b.dataset.val) : b.dataset.val); return; }
   if ((b = t.closest('[data-act]'))) {
     const s = S_(), a = b.dataset.act;
@@ -538,10 +563,10 @@ document.addEventListener('click', e => {
     return;
   }
   if (t.id === 'exp') {
-    const blob = new Blob([JSON.stringify({ app: 'Afrad Typer', user, data, avatar: avatarOf(user) }, null, 1)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(exportPayload(), null, 1)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'afrad-typer-' + user + '-' + dayKey() + '.json'; a.click(); return;
   }
-  if (t.id === 'rst') { if (confirm('Delete ALL practice history for ' + user + '? This cannot be undone.')) { data.history = []; save(); renderAll(); } return; }
+  if (t.id === 'rst') { if (confirm('Delete ALL practice history for ' + user + '? This cannot be undone.')) { data.history = []; data.resetAt = Date.now(); save(); renderAll(); } return; }
   if (t.id === 'del') { if (confirm('Delete the user "' + user + '" and all their data from this browser?')) { localStorage.removeItem(LS + 'data.' + user); localStorage.removeItem(LS + 'avatar.' + user); localStorage.removeItem(LS + 'pw.' + user); profiles = profiles.filter(x => x !== user); saveJSON('profiles', profiles); showPicker(); } return; }
 });
 document.addEventListener('change', e => {
@@ -553,14 +578,7 @@ document.addEventListener('change', e => {
       try {
         const j = JSON.parse(rd.result), d = j.data || j;
         if (j.avatar && !avatarOf(user)) saveJSON('avatar.' + user, j.avatar);
-        const have = new Set(data.history.map(r => r.t));
-        (d.history || []).forEach(r => { if (!have.has(r.t)) data.history.push(r); });
-        data.history.sort((a, b) => a.t - b.t);
-        const ids = new Set(data.passages.map(p => p.id));
-        (d.passages || []).forEach(p => { if (!ids.has(p.id)) data.passages.push(p); });
-        const st = (d.settings || {});
-        data.settings.stageCleared = Math.max(data.settings.stageCleared, st.stageCleared || 0);
-        if ((st.stageSelected || 0) > data.settings.stageSelected && st.stageSelected <= nextOrSelf(data.settings.stageCleared)) data.settings.stageSelected = st.stageSelected;
+        mergeInto(data, d);
         save(); renderAll(); alert('Backup imported: ' + (d.history || []).length + ' sessions merged.');
       } catch (err) { alert('That file could not be read as an Afrad Typer backup.'); }
     };
@@ -590,6 +608,7 @@ function setAvatarFromFile(file) {
     c.getContext('2d').drawImage(img, sx, sy, s, s, 0, 0, 160, 160);
     URL.revokeObjectURL(url);
     if (!saveJSON('avatar.' + user, c.toDataURL('image/jpeg', 0.88))) alert('The picture could not be saved in this browser.');
+    if (window.onUserSaved) window.onUserSaved();
     renderAll();
   };
   img.onerror = () => { URL.revokeObjectURL(url); alert('That file could not be read as a picture.'); };
@@ -642,9 +661,10 @@ function showPicker() {
   $('#plist').innerHTML = profiles.length ? profiles.map(n => '<button class="user' + (n === last ? ' last' : '') + '" data-user="' + esc(n) + '">' + avatarHtml(n) + '<span>' + esc(n) + '</span>' + (hasPw(n) ? '<span class="lock" title="Password protected">🔒</span>' : '') + '</button>').join('') : '<p class="muted">No users yet. Add your name below to begin.</p>';
 }
 function enter(name) {
-  openUser(name); tab = 'practice'; sitting = { wpms: [], typingSecs: 0, lastBreak: 0 };
+  openUser(name); tab = 'today'; sitting = { wpms: [], typingSecs: 0, lastBreak: 0 };
   $('#picker').hidden = true; $('#app').hidden = false;
   newSession();
+  if (window.onUserEntered) window.onUserEntered();
 }
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-user]');

@@ -84,3 +84,11 @@ button.link{background:none;border:none;color:var(--muted);padding:0;font-size:1
 #fm-fields input{display:block;width:280px;margin:8px auto;padding:8px 10px}
 #fm-err{min-height:1.2em;margin:4px 0}
 .user .lock{margin-left:auto;opacity:.7}
+
+.plan{display:flex;align-items:center;gap:12px;background:var(--panel);border-radius:10px;padding:10px 14px;margin:8px 0}
+.plan .grow{flex:1}
+.chk{width:26px;height:26px;border-radius:50%;border:2px solid var(--muted);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+.chk.ok{background:#5fb878;border-color:#5fb878}
+.bar{height:8px;border-radius:4px;background:var(--panel);overflow:hidden;margin:0 0 12px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.deskbox{background:var(--panel);border-radius:10px;padding:10px 14px;margin:10px 0}

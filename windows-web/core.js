@@ -23,7 +23,7 @@ const DEF = {
   strictMode: false, textSize: 28, hideAhead: 0, sounds: true, focusMode: false, paceWPM: 0,
   breakReminder: true, selectedPassage: 'starter0', lessonByKey: {},
   stageSelected: 45, stageCleared: 0, stageMinLessons: 30, stageMinWords: 200,
-  stageAutoMix: true, stageCapitals: 5, stagePunctuation: 5, warmupEnabled: true, warmupDay: ''
+  dailyGoalMinutes: 20, stageAutoMix: true, stageCapitals: 5, stagePunctuation: 5, warmupEnabled: true, warmupDay: ''
 };
 
 /* ---------- storage (per user, in this browser) ---------- */
@@ -47,6 +47,27 @@ function save() {
   if (!user) return;
   if (data.history.length > 1200) data.history = data.history.slice(-1200);
   saveJSON('data.' + user, data);
+  if (window.onUserSaved) window.onUserSaved();
+}
+/* Merge another copy of this user's data (backup file or synced folder) into target. Returns true if anything changed. */
+function mergeInto(target, d) {
+  let changed = false;
+  const reset = Math.max(target.resetAt || 0, d.resetAt || 0);
+  if (reset > (target.resetAt || 0)) { target.resetAt = reset; const n = target.history.length; target.history = target.history.filter(r => r.t >= reset); if (target.history.length !== n) changed = true; }
+  const have = new Set(target.history.map(r => r.t));
+  (d.history || []).forEach(r => { if (r.t >= reset && !have.has(r.t)) { target.history.push(r); have.add(r.t); changed = true; } });
+  target.history.sort((a, b) => a.t - b.t);
+  const ids = new Set(target.passages.map(p => p.id));
+  (d.passages || []).forEach(p => { if (!ids.has(p.id)) { target.passages.push(p); changed = true; } });
+  const st = d.settings || {}, ts = target.settings;
+  if ((st.stageCleared || 0) > (ts.stageCleared || 0)) { ts.stageCleared = st.stageCleared; changed = true; }
+  if ((st.stageSelected || 0) > ts.stageSelected && st.stageSelected <= (nextStage(ts.stageCleared) || ts.stageCleared)) { ts.stageSelected = st.stageSelected; changed = true; }
+  return changed;
+}
+function exportPayload() { return { app: 'Afrad Typer', user, data, avatar: loadJSON('avatar.' + user, null) }; }
+function secondsToday(modeName) {
+  const k = dayKey();
+  return data.history.filter(r => dayKey(new Date(r.t)) === k && (!modeName || r.mode === modeName)).reduce((a, r) => a + r.seconds, 0);
 }
 const S_ = () => data.settings;
 
