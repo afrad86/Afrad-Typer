@@ -225,8 +225,9 @@ enum LessonBuilder {
     static func ngramBoost(n: Int, list: [String], keys: [String], pairs: [String], words: [String], count: Int) -> [String] {
         var pool: [String] = []
         var seen = Set<String>()
+        let real = Set(list)   // only real, commonly used groups: never random slices of words
         func add(_ g: String) {
-            if g.count == n, !seen.contains(g) { seen.insert(g); pool.append(g) }
+            if g.count == n, real.contains(g), !seen.contains(g) { seen.insert(g); pool.append(g) }
         }
         let top = Array(list.prefix(1000))
         for g in top {

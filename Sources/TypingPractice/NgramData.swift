@@ -1,7 +1,7 @@
 import Foundation
 
 /// Practice data. `words` is the everyday word list (see WordList.swift), ordered by real-world frequency.
-/// The n-gram lists are derived from it (weighted by 1/rank), so "Top 50/100/…" follows English frequency.
+/// The n-gram lists are the most common real trigrams/tetragrams of everyday English (RealNgrams.swift).
 enum NgramData {
     static let words: [String] = WordList.raw
         .split(whereSeparator: { $0 == " " || $0 == "\n" })
@@ -26,23 +26,7 @@ enum NgramData {
     /// Real everyday words only: four or more letters, so "Top 50" is words like "that", "with", "have", "people".
     static let commonWords: [String] = drillWords.filter { $0.count >= 4 }
 
-    static let trigrams: [String] = compute(3)
-    static let tetragrams: [String] = compute(4)
-
-    private static func compute(_ n: Int) -> [String] {
-        var weights: [String: Double] = [:]
-        for (rank, w) in words.enumerated() {
-            let chars = Array(w)
-            guard chars.count >= n else { continue }
-            let weight = 1.0 / Double(rank + 1)
-            for i in 0...(chars.count - n) {
-                let g = String(chars[i..<(i + n)])
-                weights[g, default: 0] += weight
-            }
-        }
-        let sorted = weights.sorted { a, b in
-            a.value == b.value ? a.key < b.key : a.value > b.value
-        }
-        return sorted.prefix(1000).map { $0.key }
-    }
+    /// Real, commonly used groups only (see RealNgrams.swift), ranked by how often they occur in everyday English.
+    static let trigrams: [String] = RealNgrams.trigrams
+    static let tetragrams: [String] = RealNgrams.tetragrams
 }

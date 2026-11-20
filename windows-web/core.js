@@ -85,8 +85,8 @@ function deriveNgrams(n) {
 function extend(site, more) { const seen = new Set(site); const out = site.slice(); more.forEach(x => { if (!seen.has(x)) { seen.add(x); out.push(x); } }); return out; }
 const DRILL = {
   Words: extend(D.site.words, WORDS),
-  Trigrams: extend(D.site.trigrams, deriveNgrams(3)),
-  Tetragrams: extend(D.site.tetragrams, deriveNgrams(4))
+  Trigrams: extend(D.site.trigrams, D.real.trigrams),
+  Tetragrams: extend(D.site.tetragrams, D.real.tetragrams)
 };
 DRILL['Common words'] = DRILL.Words.filter(w => w.length >= 4);
 
@@ -207,7 +207,8 @@ function slowWordText(stats, base, size, count) {
 /* Trigram/tetragram lessons: extra practice is pieces of the same size, never whole words. */
 function ngramBoost(n, list, keys, pairs, words, count) {
   const poolArr = [], seen = new Set();
-  const add = g => { if (g.length === n && !seen.has(g)) { seen.add(g); poolArr.push(g); } };
+  const real = new Set(list);   // only real, commonly used groups: never random slices of words
+  const add = g => { if (g.length === n && real.has(g) && !seen.has(g)) { seen.add(g); poolArr.push(g); } };
   list.slice(0, 1000).forEach(g => { keys.forEach(k => { if (g.includes(k)) add(g); }); pairs.forEach(p => { if (g.includes(p)) add(g); }); });
   words.forEach(w => { for (let i = 0; i + n <= w.length; i++) add(w.slice(i, i + n)); });
   if (!poolArr.length) return [];
