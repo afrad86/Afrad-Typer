@@ -120,34 +120,42 @@ struct AvatarMenu: View {
             .buttonStyle(.plain)
             .help("Click to manage your photo and password")
             .popover(isPresented: $open.value, arrowEdge: .bottom) {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text("PHOTO").font(.caption2).foregroundColor(.secondary)
-                    if session.avatar(for: profile) != nil {
-                        Button("Change photo\u{2026}") { run { session.chooseAvatar(for: profile) } }
-                        Button("Remove photo") { run { session.removeAvatar(for: profile) } }
-                    } else {
-                        Button("Add photo\u{2026}") { run { session.chooseAvatar(for: profile) } }
+                    HStack(spacing: 6) {
+                        if session.avatar(for: profile) != nil {
+                            Button("Change photo") { run { session.chooseAvatar(for: profile) } }
+                            Text("\u{00B7}").foregroundColor(.secondary)
+                            Button("Remove") { run { session.removeAvatar(for: profile) } }
+                        } else {
+                            Button("Add photo") { run { session.chooseAvatar(for: profile) } }
+                        }
                     }
+                    .buttonStyle(.link)
                     if signedInAsThis {
                         Divider()
                         Text("PASSWORD").font(.caption2).foregroundColor(.secondary)
-                        if profile.locked {
-                            Button("Change password\u{2026}") { run { session.changePassword(for: profile) } }
-                            Button("Remove password\u{2026}") { run { session.removePassword(for: profile) } }
-                            if AppSession.touchIDAvailable {
-                                Divider()
-                                HStack {
-                                    Text("Unlock with Touch ID")
-                                    Spacer()
-                                    Text(profile.touchID == true ? "On \u{2713}" : "Off")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                                .contentShape(Rectangle())
-                                .onTapGesture { run { session.setTouchID(for: profile, on: profile.touchID != true) } }
+                        HStack(spacing: 6) {
+                            if profile.locked {
+                                Button("Change password") { run { session.changePassword(for: profile) } }
+                                Text("\u{00B7}").foregroundColor(.secondary)
+                                Button("Remove") { run { session.removePassword(for: profile) } }
+                            } else {
+                                Button("Set a password") { run { session.changePassword(for: profile) } }
                             }
-                        } else {
-                            Button("Set a password\u{2026}") { run { session.changePassword(for: profile) } }
+                        }
+                        .buttonStyle(.link)
+                        if profile.locked && AppSession.touchIDAvailable {
+                            Divider()
+                            HStack {
+                                Text("Unlock with Touch ID").font(.callout)
+                                Spacer(minLength: 16)
+                                Text(profile.touchID == true ? "On \u{2713}" : "Off")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture { run { session.setTouchID(for: profile, on: profile.touchID != true) } }
                         }
                     }
                 }
