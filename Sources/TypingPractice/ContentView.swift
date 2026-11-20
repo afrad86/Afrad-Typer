@@ -43,12 +43,29 @@ struct ContentView: View {
                         .padding(.horizontal, 14)
                         .padding(.top, 14)
                         .padding(.bottom, 8)
-                    List(selection: $tabBox.value) {
+                    VStack(spacing: 2) {
                         ForEach(AppTab.allCases) { t in
-                            Label(t.rawValue, systemImage: t.icon).tag(t)
+                            let on = (tabBox.value ?? .practice) == t
+                            Button(action: { tabBox.value = t }) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: t.icon).frame(width: 20)
+                                    Text(t.rawValue)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 6)
+                                .padding(.horizontal, 10)
+                                .contentShape(Rectangle())
+                                .background(RoundedRectangle(cornerRadius: 6).fill(on ? Color.accentColor.opacity(0.22) : Color.clear))
+                                .foregroundColor(on ? Color.accentColor : Color.primary)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
-                    .listStyle(.sidebar)
+                    .padding(.horizontal, 8)
+                    Spacer(minLength: 8)
+                    DailyGoalBox()
+                        .padding(.horizontal, 12)
+                    Spacer(minLength: 8)
                     HStack {
                         if let cur = session.current {
                             AvatarMenu(profile: cur)
@@ -97,5 +114,45 @@ struct ContentView: View {
         case .library:
             LibraryView(onUse: { tabBox.value = .practice })
         }
+    }
+}
+
+
+/// Sidebar box: minutes typed today against the daily goal. Sits between the tabs and the user.
+struct DailyGoalBox: View {
+    @EnvironmentObject var store: Store
+    @StateObject private var showing = Box<Bool>(false)
+
+    var body: some View {
+        let goal = max(1, store.data.settings.dailyGoalMinutes)
+        let done = store.secondsToday() / 60
+        let reached = done >= Double(goal)
+        let barColor = reached ? Color(nsColor: .systemGreen) : Color.accentColor
+        return VStack(alignment: .leading, spacing: 6) {
+            Text("TODAY'S GOAL").font(.caption2).foregroundColor(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("\(Int(done))").font(.title2.weight(.semibold))
+                Text("/ \(goal) min").font(.caption).foregroundColor(.secondary)
+            }
+            ProgressView(value: min(done / Double(goal), 1.0)).tint(barColor)
+            if reached {
+                Text("Goal reached \u{2713}").font(.caption).foregroundColor(Color(nsColor: .systemGreen))
+            } else {
+                Text("\(max(1, goal - Int(done))) min to go").font(.caption).foregroundColor(.secondary)
+            }
+            Button("Change goal") { showing.value = true }
+                .buttonStyle(.link)
+                .font(.caption)
+                .popover(isPresented: Binding(get: { showing.value }, set: { showing.value = $0 }), arrowEdge: .trailing) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Daily goal").font(.headline)
+                        Stepper("\(goal) minutes a day", value: $store.data.settings.dailyGoalMinutes, in: 5...480, step: 5)
+                    }
+                    .padding(16)
+                    .frame(width: 240)
+                }
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.12)))
     }
 }

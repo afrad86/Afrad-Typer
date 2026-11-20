@@ -195,6 +195,17 @@ function typeChar(ch) {
   applyHide();
   updateStats();
 }
+/* Backspace: take back the last letter so you can retype it (off in strict mode). The mistake still counts against accuracy. */
+function backspace() {
+  if (!T || T.result || S_().strictMode || T.pos <= 0) return;
+  T.pos--;
+  if (T.states[T.pos] === 1) T.correctCount--;
+  T.states[T.pos] = 0;
+  const sp = $('#inner').children[T.pos]; if (sp) sp.className = '';
+  T.prev = T.pos > 0 ? T.chars[T.pos - 1] : null;
+  T.curWord = -1; T.curSum = 0; T.curCount = 0; T.curErr = false;
+  setCaret(); applyHide(); updateStats();
+}
 function setCaret() {
   const spans = $('#inner').children;
   $$('#inner .cur').forEach(e => e.classList.remove('cur'));
@@ -298,17 +309,21 @@ function retry() { newSession(T && T.replay ? { replayWords: T.replayWords } : n
 window.addEventListener('keydown', e => {
   if (!$('#app') || $('#app').hidden || !T) return;
   if (!$('#modal').hidden) { if (e.key === 'Enter') { e.preventDefault(); $('#modal-ok').click(); } return; }
-  const tag = (e.target.tagName || '').toLowerCase();
-  if (['input', 'textarea', 'select'].includes(tag)) return;
   if (tab !== 'practice' && tab !== 'advanced') return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  // Esc always restarts the lesson, even right after you used a drop-down or button.
+  if (e.key === 'Escape' && !e.ctrlKey && !e.metaKey && !e.altKey && !(tag === 'input' && e.target.type !== 'checkbox') && tag !== 'textarea') { e.preventDefault(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); retry(); return; }
+  if (['input', 'textarea', 'select'].includes(tag)) return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (T.result) {
     if (e.key === 'Enter') { e.preventDefault(); proceed(); }
-    else if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); retry(); }
+    else if (e.key === 'Tab') { e.preventDefault(); if (T.result.passed === true) proceed(); else retry(); }
+    else if (e.key === 'Escape') { e.preventDefault(); retry(); }
     return;
   }
   if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); if (T.started) retry(); return; }
-  if (e.key === 'Backspace' || e.key === ' ') e.preventDefault();
+  if (e.key === 'Backspace') { e.preventDefault(); backspace(); return; }
+  if (e.key === ' ') e.preventDefault();
   if (e.key.length === 1) { e.preventDefault(); typeChar(e.key); }
 });
 
@@ -329,6 +344,7 @@ function renderAll() {
   $$('.pane').forEach(p => { p.hidden = true; });
   if (tab === 'practice' || tab === 'advanced') { $('#pane-practice').hidden = false; renderPractice(); }
   else { const p = $('#pane-' + tab); p.hidden = false; ({ today: renderToday, progress: renderProgress, weak: renderWeak, library: renderLibrary })[tab](p); }
+  renderGoal();
   $('#who').innerHTML = '<div class="whorow"><span data-act="avatar" title="Click to change your picture">' + avatarHtml(user) + '</span><span>' + esc(user) + '</span></div>' + (avatarOf(user) ? '<button class="link" data-act="avatar-remove">Remove picture</button>' : '<button class="link" data-act="avatar">Add a picture</button>') + (hasPw(user) ? '<button class="link" data-act="pw-change">Change password</button> <button class="link" data-act="pw-remove">Remove password</button>' : '<button class="link" data-act="pw-set">Set a password</button>') + '<button class="small" id="switch">Switch user</button>';
 }
 const PLAN = [
@@ -353,6 +369,14 @@ function renderToday(p) {
     '<div class="bar"><i style="width:' + Math.min(100, todayMin / goal * 100).toFixed(0) + '%"></i></div>' +
     '<div class="row"><label>Daily goal: <input type="number" data-input="dailyGoalMinutes" min="5" max="180" step="5" value="' + goal + '" style="width:70px"> minutes</label></div>' +
     '<h3>Suggested session</h3><p class="muted">Short, focused practice beats long occasional sessions. Stay above 95% accuracy and your speed will follow.</p>' + rows;
+}
+let goalEdit = false;
+function renderGoal() {
+  const g = Math.max(1, S_().dailyGoalMinutes || 20), done = secondsToday() / 60, reached = done >= g;
+  const el = $('#goal'); el.className = 'goal' + (reached ? ' done' : '');
+  el.innerHTML = '<div class="gt">Today\'s goal</div><div class="gv">' + Math.floor(done) + ' <small>/ ' + g + ' min</small></div><div class="gb"><i style="width:' + Math.min(100, done / g * 100).toFixed(0) + '%"></i></div>' +
+    '<div class="gs">' + (reached ? 'Goal reached ✓' : Math.max(1, g - Math.floor(done)) + ' min to go') + '</div>' +
+    (goalEdit ? '<div class="gs"><input type="number" data-input="dailyGoalMinutes" min="5" max="480" step="5" value="' + g + '" style="width:60px"> min <a data-act="goal">Done</a></div>' : '<div class="gs"><a data-act="goal">Change goal</a></div>');
 }
 function renderTabs() { $('#nav').innerHTML = TABS.map(t => '<button class="navbtn' + (t[0] === tab ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + '</button>').join(''); }
 
@@ -440,13 +464,13 @@ function renderTyping() {
   if (T.pace > 0) markPace(Math.floor(elapsedSecs() * T.pace * 5 / 60));
   const r = T.result, rc = $('#result');
   rc.hidden = !r;
-  $('#hint').textContent = r ? '' : (T.started ? 'Esc / Tab: restart' : 'Start typing…  (Esc / Tab: new text)');
+  $('#hint').textContent = r ? '' : (T.started ? 'Backspace fixes a mistake  ·  Esc / Tab: restart' : 'Start typing…  (Backspace fixes mistakes  ·  Esc / Tab: new text)');
   if (r) {
     let h = '<div class="tiles">' + tile('WPM', r.wpm.toFixed(0)) + tile('Accuracy', r.acc.toFixed(1) + '%') + tile('Raw', r.raw.toFixed(0)) + tile('Consistency', r.consistency ? r.consistency.toFixed(0) + '%' : '—') + tile('Time', r.secs.toFixed(0) + ' s') + '</div>';
     if (r.passed !== null) h += '<p class="verdict ' + (r.passed ? 'pass' : 'fail') + '">' + (r.passed ? 'Passed' : 'Not passed — try again') + '</p>';
     if (r.note) h += '<p class="note">' + esc(r.note) + '</p>';
     if (r.missed.length) h += '<p>Words you slipped on: <b>' + r.missed.map(esc).join(', ') + '</b></p><button class="primary" data-act="replay">Retype them 5 times</button> ';
-    h += '<button class="primary" data-act="next">Next (Enter)</button> <button data-act="retry">Retry (Esc)</button>';
+    h += '<button class="primary" data-act="next">Next (Enter' + (r.passed === true ? ' or Tab' : '') + ')</button> <button data-act="retry">Retry (Esc' + (r.passed === true ? '' : ' or Tab') + ')</button>';
     rc.innerHTML = h;
     T.result.missed = r.missed;
   }
@@ -490,12 +514,35 @@ function streakDays() {
   while (days.has(dayKey(d))) { n++; d.setDate(d.getDate() - 1); }
   return n;
 }
+function roadHtml() {
+  const target = 100, f = forecast(target), pct = Math.min(100, f.cur / target * 100);
+  let msg;
+  if (f.state === 'reached') msg = 'You are at <b>' + target + ' WPM or more</b> on average. Goal reached!';
+  else if (f.state === 'few') msg = f.span ? 'Practise over a longer stretch (at least 10 days apart) and I will estimate your date.' : 'Practise on ' + f.need + ' more day' + (f.need === 1 ? '' : 's') + ' and I will estimate your date.';
+  else if (f.state === 'flat') msg = 'Your average has been flat over the last 6 weeks, so there is no date yet. Short, accurate sessions most days are what move it.';
+  else if (f.state === 'far') msg = 'At your recent pace (' + f.perWeek.toFixed(1) + ' WPM a week) it would take more than 2 years. More regular practice will change that.';
+  else msg = 'At your recent pace (<b>+' + f.perWeek.toFixed(1) + ' WPM a week</b>) you reach ' + target + ' WPM around <b>' + f.date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) + '</b>.';
+  return '<h3>Road to ' + target + ' WPM</h3><div class="panel">Current average <b>' + f.cur.toFixed(0) + '</b> (last 10 sessions) → goal <b>' + target + '</b><div class="bar" style="margin:10px 0"><i style="width:' + pct.toFixed(0) + '%"></i></div><div class="muted">' + msg + '</div><div class="muted" style="margin-top:6px">This is an estimate from your own trend, not a promise.</div></div>';
+}
+function calendarHtml() {
+  const by = minutesByDay(), goal = Math.max(1, S_().dailyGoalMinutes || 20), today = new Date(); today.setHours(12, 0, 0, 0);
+  const start = new Date(today); start.setDate(start.getDate() - ((start.getDay() + 6) % 7) - 77);
+  let cells = '';
+  for (let i = 0; i < 84; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    if (d > today) { cells += '<span class="cd fut"></span>'; continue; }
+    const m = by[dayKey(d)] || 0, lv = m <= 0 ? 0 : m < goal / 2 ? 1 : m < goal ? 2 : 3;
+    cells += '<span class="cd l' + lv + '" title="' + d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }) + ': ' + Math.round(m) + ' min"></span>';
+  }
+  return '<h3>Practice calendar</h3><div class="panel"><div class="cal">' + cells + '</div><div class="muted" style="margin-top:8px">Last 12 weeks, one square per day. Darker orange = more minutes; the darkest means you reached your daily goal. Current streak <b>' + streakDays() + '</b> day(s) · best <b>' + bestStreak() + '</b>.</div></div>';
+}
 function renderProgress(p) {
   const hs = data.history.filter(isCounted);
   const best = hs.reduce((m, r) => Math.max(m, r.wpm), 0);
   const last = hs.slice(-10), avg = last.length ? last.reduce((a, r) => a + r.wpm, 0) / last.length : 0, avgA = last.length ? last.reduce((a, r) => a + r.accuracy, 0) / last.length : 0;
   const today = dayKey(), mins = data.history.filter(r => dayKey(new Date(r.t)) === today).reduce((a, r) => a + r.seconds, 0) / 60;
   p.innerHTML = '<h2>Progress — ' + esc(user) + '</h2><div class="tiles">' + tile('Sessions', hs.length) + tile('Best WPM', best.toFixed(0)) + tile('Avg WPM (last 10)', avg.toFixed(0)) + tile('Avg accuracy (last 10)', avgA.toFixed(1) + '%') + tile('Typed today', mins.toFixed(0) + ' min') + tile('Day streak', streakDays()) + '</div>' +
+    '<div class="two"><div>' + roadHtml() + '</div><div>' + calendarHtml() + '</div></div>' +
     '<div class="charts"><canvas id="c1"></canvas><canvas id="c2"></canvas></div>' +
     '<div class="row"><button id="exp">Export backup</button> <label class="btn">Import backup<input type="file" id="imp" accept=".json" hidden></label> <button id="rst" class="danger">Reset history</button> <button id="del" class="danger">Delete this user</button></div>' +
     '<p class="muted">Your progress is stored on this computer. Export backup saves a copy by hand.</p><div id="deskbox"></div>' +
@@ -536,7 +583,8 @@ document.addEventListener('click', e => {
   if ((b = t.closest('[data-set]'))) { applyInput(b.dataset.set, b.dataset.num ? Number(b.dataset.val) : b.dataset.val); return; }
   if ((b = t.closest('[data-act]'))) {
     const s = S_(), a = b.dataset.act;
-    if (a === 'sounds') { s.sounds = !s.sounds; save(); renderAll(); }
+    if (a === 'goal') { goalEdit = !goalEdit; renderAll(); }
+    else if (a === 'sounds') { s.sounds = !s.sounds; save(); renderAll(); }
     else if (a === 'smaller') { s.textSize = Math.max(16, s.textSize - 2); save(); renderAll(); }
     else if (a === 'bigger') { s.textSize = Math.min(60, s.textSize + 2); save(); renderAll(); }
     else if (a === 'opts') { optsOpen = !optsOpen; renderAll(); }
@@ -584,6 +632,7 @@ document.addEventListener('change', e => {
     };
     rd.readAsText(t.files[0]); return;
   }
+  if (t.tagName === 'SELECT') setTimeout(() => t.blur(), 0);
   const key = t.dataset.input; if (!key) return;
   let v = t.type === 'checkbox' ? t.checked : t.type === 'range' || t.type === 'number' || t.dataset.num ? Number(t.value) : t.value;
   if (t.type === 'number' && (isNaN(v) || v < Number(t.min || 0))) v = Number(t.min || 1);

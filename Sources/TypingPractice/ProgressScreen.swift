@@ -48,6 +48,8 @@ struct ProgressScreen: View {
 
                 goalCard
 
+                RoadAndCalendar()
+
                 if filtered.isEmpty {
                     Text("No sessions yet. Finish a lesson, timed test or passage and it will show up here.")
                         .foregroundStyle(.secondary)

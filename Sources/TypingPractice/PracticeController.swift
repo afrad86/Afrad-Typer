@@ -690,7 +690,8 @@ final class PracticeController: ObservableObject {
         if result != nil {
             switch e {
             case .enter: proceed()
-            case .escape, .tab: retry()
+            case .tab: if result?.passed == true { proceed() } else { retry() }
+            case .escape: retry()
             default: break
             }
             return

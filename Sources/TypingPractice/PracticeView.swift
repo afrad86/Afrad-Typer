@@ -577,7 +577,7 @@ struct PracticeView: View {
                     Button("Repeat this one") { c.retry() }
                 }
             }
-            Text("Return = \(primary.lowercased())  ·  Esc = restart")
+            Text(r.passed == true ? "Return or Tab = \(primary.lowercased())  ·  Esc = restart" : "Return = \(primary.lowercased())  ·  Tab or Esc = restart")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

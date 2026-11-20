@@ -293,3 +293,40 @@ function chunkPassage(text, target) {
   if (cur) chunks.push(cur);
   return chunks;
 }
+
+
+/* ---------- road to the goal and practice calendar ---------- */
+function minutesByDay() {
+  const m = {};
+  data.history.forEach(r => { const k = dayKey(new Date(r.t)); m[k] = (m[k] || 0) + r.seconds / 60; });
+  return m;
+}
+function bestStreak() {
+  const days = Object.keys(minutesByDay()).sort(); let best = 0, run = 0, prev = null;
+  days.forEach(k => {
+    const d = new Date(k + 'T12:00:00');
+    run = prev && Math.round((d - prev) / 86400000) === 1 ? run + 1 : 1;
+    best = Math.max(best, run); prev = d;
+  });
+  return best;
+}
+/* Estimates a date for reaching the target, from the trend of your daily average speed over the last 6 weeks. */
+function forecast(target) {
+  const hs = data.history.filter(isCounted);
+  const last = hs.slice(-10), cur = last.length ? last.reduce((a, r) => a + r.wpm, 0) / last.length : 0;
+  if (cur >= target) return { state: 'reached', cur };
+  const since = Date.now() - 42 * 86400000, byDay = {};
+  hs.filter(r => r.t >= since).forEach(r => { const k = dayKey(new Date(r.t)); (byDay[k] = byDay[k] || []).push(r.wpm); });
+  const keys = Object.keys(byDay).sort();
+  if (keys.length < 5) return { state: 'few', cur, need: 5 - keys.length };
+  const t0 = new Date(keys[0] + 'T12:00:00');
+  const pts = keys.map(k => [Math.round((new Date(k + 'T12:00:00') - t0) / 86400000), byDay[k].reduce((a, b) => a + b, 0) / byDay[k].length]);
+  if (pts[pts.length - 1][0] < 10) return { state: 'few', cur, need: 0, span: true };
+  const n = pts.length, mx = pts.reduce((a, p) => a + p[0], 0) / n, my = pts.reduce((a, p) => a + p[1], 0) / n;
+  const sxx = pts.reduce((a, p) => a + (p[0] - mx) * (p[0] - mx), 0), sxy = pts.reduce((a, p) => a + (p[0] - mx) * (p[1] - my), 0);
+  const perDay = sxx ? sxy / sxx : 0, perWeek = perDay * 7;
+  if (perWeek < 0.3) return { state: 'flat', cur, perWeek };
+  const days = (target - cur) / perDay;
+  if (days > 730) return { state: 'far', cur, perWeek };
+  return { state: 'date', cur, perWeek, date: new Date(Date.now() + days * 86400000) };
+}
