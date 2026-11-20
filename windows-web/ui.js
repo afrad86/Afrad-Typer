@@ -197,7 +197,12 @@ function typeChar(ch) {
 }
 /* Backspace: take back the last letter so you can retype it (off in strict mode). The mistake still counts against accuracy. */
 function backspace() {
-  if (!T || T.result || S_().strictMode || T.pos <= 0) return;
+  if (!T || T.result) return;
+  if (S_().strictMode) { // strict mode never moves past a mistake, so Backspace just clears the red mark
+    if (T.states[T.pos] === 2) { T.states[T.pos] = 0; const s = $('#inner').children[T.pos]; if (s) s.className = 'cur'; setCaret(); }
+    return;
+  }
+  if (T.pos <= 0) return;
   T.pos--;
   if (T.states[T.pos] === 1) T.correctCount--;
   T.states[T.pos] = 0;

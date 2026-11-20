@@ -705,7 +705,11 @@ final class PracticeController: ObservableObject {
     }
 
     private func backspace() {
-        if store.data.settings.strictMode { return }
+        if store.data.settings.strictMode {
+            // Strict mode never moves past a mistake, so Backspace just clears the red mark on the current letter.
+            if pos < states.count, states[pos] == .wrong { states[pos] = .untyped }
+            return
+        }
         guard pos > 0 else { return }
         pos -= 1
         if states[pos] == .correct { correctCount -= 1 }
