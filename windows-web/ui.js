@@ -36,7 +36,7 @@ function newSession(opts) {
   const t = {
     mode, text: '', label: '', info: '', detail: '', key: null, idx: 0, count: 0, flags: null, timeLimit: 0,
     warm: false, replay: !!opts.replayWords, replayWords: opts.replayWords || null, pace: s.paceWPM || 0, stage: 0,
-    pos: 0, started: false, startT: 0, states: [], ks: {}, ps: {}, ws: {}, intervals: [],
+    pos: 0, started: false, startT: 0, pausedAt: 0, lastKeyAt: 0, states: [], ks: {}, ps: {}, ws: {}, intervals: [],
     correctKeys: 0, totalKeys: 0, correctCount: 0, boostKeys: 0, boostCorrect: 0, lastT: 0, prev: null,
     curWord: -1, curSum: 0, curCount: 0, curErr: false, wordMiss: {}, result: null, mask: []
   };
@@ -128,9 +128,19 @@ function newSession(opts) {
 
 function stopTimer() { if (timerId) { clearInterval(timerId); timerId = null; } }
 function startTimer() { stopTimer(); timerId = setInterval(tick, 100); }
-function elapsedSecs() { return T && T.started ? (performance.now() - T.startT) / 1000 : 0; }
+function elapsedSecs() { return T && T.started ? ((T.pausedAt || performance.now()) - T.startT) / 1000 : 0; }
+/* Away from the keyboard: after a few seconds with no key the clock stops; the next key carries on (the pause is not counted). */
+function setPauseBar() { const b = $('#pause'); if (b) b.hidden = !(T && T.pausedAt && !T.result); }
+function resumeIfPaused() {
+  if (!T) return;
+  T.lastKeyAt = performance.now();
+  if (T.pausedAt) { T.startT += performance.now() - T.pausedAt; T.pausedAt = 0; setPauseBar(); }
+}
 function tick() {
   if (!T || T.result) return;
+  const afk = S_().afkSeconds;
+  if (!T.pausedAt && afk > 0 && T.started && T.lastKeyAt && performance.now() - T.lastKeyAt >= afk * 1000) { T.pausedAt = T.lastKeyAt + afk * 1000; setPauseBar(); }
+  if (T.pausedAt) { updateStats(); return; }
   updateStats();
   if (T.timeLimit > 0 && elapsedSecs() >= T.timeLimit) { finish(true); return; }
   if (T.pace > 0) markPace(Math.floor(elapsedSecs() * T.pace * 5 / 60));
@@ -160,6 +170,7 @@ function typeChar(ch) {
   if (!T || T.result || T.pos >= T.chars.length) return;
   const now = performance.now();
   if (!T.started) { T.started = true; T.startT = now; startTimer(); }
+  resumeIfPaused();
   const expected = T.chars[T.pos];
   T.totalKeys++;
   const isBoost = !!T.mask[T.pos];
@@ -198,6 +209,7 @@ function typeChar(ch) {
 /* Backspace: take back the last letter so you can retype it (off in strict mode). The mistake still counts against accuracy. */
 function backspace() {
   if (!T || T.result) return;
+  resumeIfPaused();
   if (S_().strictMode) { // strict mode never moves past a mistake, so Backspace just clears the red mark
     if (T.states[T.pos] === 2) { T.states[T.pos] = 0; const s = $('#inner').children[T.pos]; if (s) s.className = 'cur'; setCaret(); }
     return;
@@ -236,7 +248,7 @@ function finish(timedOut) {
   if (!T || T.result) return;
   stopTimer(); finalizeWord();
   const s = S_();
-  let secs = T.started ? (performance.now() - T.startT) / 1000 : 0;
+  let secs = elapsedSecs();
   if (timedOut && T.timeLimit > 0) secs = T.timeLimit;
   const minutes = Math.max(secs, 1) / 60;
   const wpm = T.correctCount / 5 / minutes, raw = T.totalKeys / 5 / minutes;
@@ -435,6 +447,7 @@ function settingsHtml(s) {
     '<div>Words per round ' + sel('wordCount', [15, 20, 30, 40, 60], s.wordCount) + '</div>' +
     '<div>Lines shown ' + sel('linesShown', [2, 3, 4, 5, 6], s.linesShown) + '</div>' +
     '<div>Pace marker ' + sel('paceWPM', [0, 30, 40, 50, 60, 70, 80, 90, 100, 110], s.paceWPM, v => v ? v + ' WPM' : 'off') + '</div>' +
+    '<div>Pause when I stop typing for ' + sel('afkSeconds', [0, 2, 3, 5, 10], s.afkSeconds, v => v ? v + ' s' : 'off') + '</div>' +
     '<div>' + toggle('strictMode', s.strictMode, 'Strict mode (must press the right key)') + '</div>' +
     '<div>' + toggle('breakReminder', s.breakReminder, 'Break reminder every 25 min') + '</div>' +
     '</div></div>';
@@ -467,6 +480,7 @@ function renderTyping() {
   inner.innerHTML = T.chars.map((c, i) => '<span' + (T.states[i] === 1 ? ' class="ok"' : T.states[i] === 2 ? ' class="bad"' : '') + '>' + esc(c) + '</span>').join('');
   setCaret(); applyHide();
   if (T.pace > 0) markPace(Math.floor(elapsedSecs() * T.pace * 5 / 60));
+  setPauseBar();
   const r = T.result, rc = $('#result');
   rc.hidden = !r;
   $('#hint').textContent = r ? '' : (T.started ? 'Backspace fixes a mistake  ·  Esc / Tab: restart' : 'Start typing…  (Backspace fixes mistakes  ·  Esc / Tab: new text)');
@@ -492,7 +506,7 @@ function updateStats() {
   const ac = showTh && T.totalKeys ? (acc >= s.minAccuracy ? 'var(--good)' : 'var(--bad)') : null;
   const left = T.timeLimit > 0 ? Math.max(0, T.timeLimit - secs) : secs;
   const avg = sitting.wpms.length ? sitting.wpms.reduce((a, b) => a + b, 0) / sitting.wpms.length : 0;
-  $('#stats').innerHTML = tile('WPM', wpm.toFixed(0), wc) + tile('Accuracy', acc.toFixed(1) + '%', ac) + tile(T.timeLimit ? 'Time left' : 'Time', left.toFixed(T.timeLimit ? 0 : 1) + ' s') +
+  $('#stats').innerHTML = tile('WPM', wpm.toFixed(0), wc) + tile('Accuracy', acc.toFixed(1) + '%', ac) + tile(T.timeLimit ? 'Time left' : 'Time', left.toFixed(T.timeLimit ? 0 : 1) + ' s' + (T.pausedAt ? ' ⏸' : '')) +
     tile('Progress', T.chars.length ? Math.round(T.pos / T.chars.length * 100) + '%' : '—') + tile('Sitting avg', avg ? avg.toFixed(0) : '—');
 }
 

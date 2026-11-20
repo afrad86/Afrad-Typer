@@ -259,6 +259,14 @@ struct PracticeView: View {
                 )
                 .frame(width: 210)
                 Button("Pace = my average + 5%") { setSmartPace() }
+                Picker("Pause when idle", selection: $store.data.settings.afkSeconds) {
+                    Text("Pause: off").tag(0)
+                    ForEach([2, 3, 5, 10], id: \.self) { n in
+                        Text("Pause after \(n) s").tag(n)
+                    }
+                }
+                .frame(width: 190)
+                .help("The clock stops when you stop typing for this long, and carries on with your next key")
                 Toggle("Strict: stop at mistakes", isOn: $store.data.settings.strictMode)
                 Toggle("Coach adjusts pace", isOn: $store.data.settings.autoPace)
                     .help("The pace caret speeds up after clean, fast rounds and eases off after sloppy ones")
@@ -496,6 +504,18 @@ struct PracticeView: View {
             .padding(28)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
+            if c.paused && c.result == nil {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14).fill(Color.black.opacity(0.45))
+                    Text("Press any key to continue ...")
+                        .font(.headline)
+                        .padding(.horizontal, 22)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(Color(nsColor: .windowBackgroundColor)))
+                        .overlay(Capsule().strokeBorder(Color.accentColor))
+                }
+            }
+
             if let r = c.result {
                 resultCard(r)
             } else if !c.started {
@@ -598,11 +618,12 @@ struct PracticeView: View {
         let timeText: String = c.timeLimit > 0
             ? String(format: "%.0f s", max(0, c.timeLimit - c.elapsed))
             : String(format: "%.0f s", c.elapsed)
+        let timeShown = c.paused ? timeText + " \u{23F8}" : timeText
         return HStack(spacing: 12) {
             StatTile(title: "WPM", value: String(format: "%.0f", c.liveWPM), color: wpmColor)
             StatTile(title: "Accuracy", value: String(format: "%.1f%%", c.liveAccuracy), color: accColor)
             StatTile(title: "Average WPM (this run)", value: c.avgWPM == 0 ? "–" : String(format: "%.0f", c.avgWPM))
-            StatTile(title: c.timeLimit > 0 ? "Time left" : "Time", value: timeText)
+            StatTile(title: c.timeLimit > 0 ? "Time left" : "Time", value: timeShown)
             if let d = c.paceDelta {
                 StatTile(
                     title: "vs pace caret (chars)",

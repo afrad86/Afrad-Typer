@@ -110,6 +110,8 @@ struct AppSettings: Codable, Equatable {
     var breakReminder: Bool = true
     var breakMinutes: Int = 25
     var autoPace: Bool = true
+    /// Seconds without a key before the clock stops (0 = never).
+    var afkSeconds: Int = 3
     var stageMinLessons: Int = 30
     var stageMinWords: Int = 200
     var stageLadderVersion: Int = 3
@@ -158,6 +160,7 @@ struct AppSettings: Codable, Equatable {
         breakReminder = try c.decodeIfPresent(Bool.self, forKey: .breakReminder) ?? true
         breakMinutes = try c.decodeIfPresent(Int.self, forKey: .breakMinutes) ?? 25
         autoPace = try c.decodeIfPresent(Bool.self, forKey: .autoPace) ?? true
+        afkSeconds = try c.decodeIfPresent(Int.self, forKey: .afkSeconds) ?? 3
         stageMinLessons = try c.decodeIfPresent(Int.self, forKey: .stageMinLessons) ?? 30
         stageMinWords = try c.decodeIfPresent(Int.self, forKey: .stageMinWords) ?? 200
         let ver = try c.decodeIfPresent(Int.self, forKey: .stageLadderVersion) ?? 1

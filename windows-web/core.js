@@ -23,7 +23,7 @@ const DEF = {
   strictMode: false, textSize: 28, hideAhead: 0, sounds: true, focusMode: false, paceWPM: 0,
   breakReminder: true, selectedPassage: 'starter0', lessonByKey: {},
   stageSelected: 45, stageCleared: 0, stageMinLessons: 30, stageMinWords: 200,
-  dailyGoalMinutes: 20, stageAutoMix: true, stageCapitals: 5, stagePunctuation: 5, warmupEnabled: true, warmupDay: ''
+  dailyGoalMinutes: 20, afkSeconds: 3, stageAutoMix: true, stageCapitals: 5, stagePunctuation: 5, warmupEnabled: true, warmupDay: ''
 };
 
 /* ---------- storage (per user, in this browser) ---------- */

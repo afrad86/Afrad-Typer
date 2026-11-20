@@ -36,6 +36,8 @@ final class PracticeController: ObservableObject {
     @Published var pos = 0
     @Published var elapsed: TimeInterval = 0
     @Published var started = false
+    /// True while the clock is stopped because you stopped typing (away from the keyboard).
+    @Published var paused = false
     @Published var result: SessionResult? = nil
     @Published var lessonLabel = ""
     @Published var infoLine = ""
@@ -73,6 +75,9 @@ final class PracticeController: ObservableObject {
     private var detailText = ""
     private var startDate: Date?
     private var lastKeyTime: Date?
+    private var lastActivity: Date?
+    private var pausedAt: Date?
+    private var pausedTotal: TimeInterval = 0
     private var keyStatsSession: [String: KeyStat] = [:]
     private var pairSession: [String: KeyStat] = [:]
     private var wordSession: [String: KeyStat] = [:]
@@ -315,6 +320,10 @@ final class PracticeController: ObservableObject {
         started = false
         startDate = nil
         elapsed = 0
+        paused = false
+        pausedAt = nil
+        pausedTotal = 0
+        lastActivity = nil
         result = nil
         pos = 0
         correctCount = 0
@@ -709,7 +718,15 @@ final class PracticeController: ObservableObject {
         }
     }
 
+    private func resumeIfPaused() {
+        if paused, let pa = pausedAt { pausedTotal += Date().timeIntervalSince(pa) }
+        paused = false
+        pausedAt = nil
+    }
+
     private func backspace() {
+        resumeIfPaused()
+        lastActivity = Date()
         if store.data.settings.strictMode {
             // Strict mode never moves past a mistake, so Backspace just clears the red mark on the current letter.
             if pos < states.count, states[pos] == .wrong { states[pos] = .untyped }
@@ -756,6 +773,8 @@ final class PracticeController: ObservableObject {
             startDate = now
             startTimer()
         }
+        resumeIfPaused()
+        lastActivity = now
         let expected = target[pos]
         totalKeys += 1
         let isBoost = pos < boostMask.count && boostMask[pos]
@@ -832,7 +851,18 @@ final class PracticeController: ObservableObject {
 
     private func tick() {
         guard started, result == nil, let st = startDate else { return }
-        elapsed = Date().timeIntervalSince(st)
+        if paused { return }
+        let now = Date()
+        let afk = store.data.settings.afkSeconds
+        if afk > 0, let la = lastActivity, now.timeIntervalSince(la) >= Double(afk) {
+            // No key for a few seconds: stop the clock until the next key.
+            let stopAt = la.addingTimeInterval(Double(afk))
+            paused = true
+            pausedAt = stopAt
+            elapsed = stopAt.timeIntervalSince(st) - pausedTotal
+            return
+        }
+        elapsed = now.timeIntervalSince(st) - pausedTotal
         if timeLimit > 0 && elapsed >= timeLimit {
             finish(timedOut: true)
         }
@@ -871,7 +901,7 @@ final class PracticeController: ObservableObject {
         let s = store.data.settings
 
         var secs = elapsed
-        if let st = startDate { secs = Date().timeIntervalSince(st) }
+        if let st = startDate { secs = Date().timeIntervalSince(st) - pausedTotal }
         if timedOut && timeLimit > 0 { secs = timeLimit }
         elapsed = secs
 
