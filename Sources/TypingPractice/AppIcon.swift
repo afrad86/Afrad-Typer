@@ -118,23 +118,33 @@ struct AvatarMenu: View {
                 AvatarView(image: session.avatar(for: profile), size: size)
             }
             .buttonStyle(.plain)
-            .help("Click to change your picture or password")
+            .help("Click to manage your photo and password")
             .popover(isPresented: $open.value, arrowEdge: .bottom) {
                 VStack(alignment: .leading, spacing: 8) {
-                    Button("Choose picture\u{2026}") { run { session.chooseAvatar(for: profile) } }
+                    Text("PHOTO").font(.caption2).foregroundColor(.secondary)
                     if session.avatar(for: profile) != nil {
-                        Button("Remove picture") { run { session.removeAvatar(for: profile) } }
+                        Button("Change photo\u{2026}") { run { session.chooseAvatar(for: profile) } }
+                        Button("Remove photo") { run { session.removeAvatar(for: profile) } }
+                    } else {
+                        Button("Add photo\u{2026}") { run { session.chooseAvatar(for: profile) } }
                     }
                     if signedInAsThis {
                         Divider()
+                        Text("PASSWORD").font(.caption2).foregroundColor(.secondary)
                         if profile.locked {
                             Button("Change password\u{2026}") { run { session.changePassword(for: profile) } }
                             Button("Remove password\u{2026}") { run { session.removePassword(for: profile) } }
                             if AppSession.touchIDAvailable {
                                 Divider()
-                                Button(profile.touchID == true ? "\u{2713} Also unlock with Touch ID" : "Also unlock with Touch ID") {
-                                    run { session.setTouchID(for: profile, on: profile.touchID != true) }
+                                HStack {
+                                    Text("Unlock with Touch ID")
+                                    Spacer()
+                                    Text(profile.touchID == true ? "On \u{2713}" : "Off")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
                                 }
+                                .contentShape(Rectangle())
+                                .onTapGesture { run { session.setTouchID(for: profile, on: profile.touchID != true) } }
                             }
                         } else {
                             Button("Set a password\u{2026}") { run { session.changePassword(for: profile) } }

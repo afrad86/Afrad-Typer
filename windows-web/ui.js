@@ -8,7 +8,7 @@ let optsOpen = false;    // settings / options shown (a pop-up in Focus mode)
 let sitting = { wpms: [], typingSecs: 0, lastBreak: 0 };
 let lastPaceIdx = -1;
 
-const TABS = [['today', 'Daily Practice'], ['practice', 'Practice'], ['advanced', 'Advanced'], ['progress', 'Progress'], ['weak', 'Weak Spots'], ['library', 'Library']];
+const TABS = [['today', 'Daily Practice'], ['practice', 'Practice'], ['advanced', 'Advanced'], ['progress', 'Progress'], ['weak', 'Weak Spots'], ['library', 'Library'], ['guide', 'How it works']];
 
 /* ---------- sounds ---------- */
 let actx = null;
@@ -360,9 +360,14 @@ function renderAll() {
   renderTabs();
   $$('.pane').forEach(p => { p.hidden = true; });
   if (tab === 'practice' || tab === 'advanced') { $('#pane-practice').hidden = false; renderPractice(); }
-  else { const p = $('#pane-' + tab); p.hidden = false; ({ today: renderToday, progress: renderProgress, weak: renderWeak, library: renderLibrary })[tab](p); }
+  else { const p = $('#pane-' + tab); p.hidden = false; ({ today: renderToday, progress: renderProgress, weak: renderWeak, library: renderLibrary, guide: renderGuide })[tab](p); }
+  renderLevel();
   renderGoal();
-  $('#who').innerHTML = '<div class="whorow"><span data-act="avatar" title="Click to change your picture">' + avatarHtml(user) + '</span><span>' + esc(user) + '</span></div>' + (avatarOf(user) ? '<button class="link" data-act="avatar-remove">Remove picture</button>' : '<button class="link" data-act="avatar">Add a picture</button>') + (hasPw(user) ? '<button class="link" data-act="pw-change">Change password</button> <button class="link" data-act="pw-remove">Remove password</button>' : '<button class="link" data-act="pw-set">Set a password</button>') + '<button class="small" id="switch">Switch user</button>';
+  const hasPic = !!avatarOf(user);
+  $('#who').innerHTML = '<div class="whorow"><span data-act="avatar" title="Click to ' + (hasPic ? 'change' : 'add') + ' your picture">' + avatarHtml(user) + '</span><span>' + esc(user) + '</span></div>' +
+    '<div class="wl"><span class="wk">Photo</span>' + (hasPic ? '<button class="link" data-act="avatar">Change photo</button> · <button class="link" data-act="avatar-remove">Remove</button>' : '<button class="link" data-act="avatar">Add photo</button>') + '</div>' +
+    '<div class="wl"><span class="wk">Password</span>' + (hasPw(user) ? '<button class="link" data-act="pw-change">Change password</button> · <button class="link" data-act="pw-remove">Remove</button>' : '<button class="link" data-act="pw-set">Set a password</button>') + '</div>' +
+    '<button class="small" id="switch">Switch user</button>';
 }
 const PLAN = [
   { key: 'warmup', mode: 'lessons', name: 'Lessons', title: 'Warm-up', detail: 'An easy lesson, slowly. Aim for 100% accuracy, not speed.', share: 0.15, offset: 0 },
@@ -387,11 +392,54 @@ function renderToday(p) {
     '<div class="row"><label>Daily goal: <input type="number" data-input="dailyGoalMinutes" min="5" max="180" step="5" value="' + goal + '" style="width:70px"> minutes</label></div>' +
     '<h3>Suggested session</h3><p class="muted">Short, focused practice beats long occasional sessions. Stay above 95% accuracy and your speed will follow.</p>' + rows;
 }
+/* Level from your recent typing: median speed of your last 30 counted sessions, lowered by accuracy. */
+const LEVELS = [[100, 'Pro Max', '#c78bff'], [80, 'Pro', '#e8d44d'], [60, 'Advanced', '#f0883e'], [40, 'Intermediate', '#5fb878'], [0, 'Beginner', '#8ab4f8']];
+function levelInfo() {
+  const last = data.history.filter(isCounted).slice(-30);
+  if (last.length < 10) return { few: last.length };
+  const ws = last.map(r => r.wpm).sort((a, b) => a - b), m = ws.length >> 1;
+  const med = ws.length % 2 ? ws[m] : (ws[m - 1] + ws[m]) / 2;
+  const w = Math.round(med), acc = last.reduce((a, r) => a + r.accuracy, 0) / last.length;
+  const base = LEVELS.findIndex(l => w >= l[0]);
+  const drop = acc < 90 ? 2 : acc < 95 ? 1 : 0;           // accuracy below 95% costs a level, below 90% two
+  const i = Math.min(LEVELS.length - 1, base + drop);
+  return { w, acc, level: LEVELS[i], held: i > base, n: last.length };
+}
+function renderLevel() {
+  const el = $('#lvl'), L = levelInfo();
+  if (L.few !== undefined) { el.innerHTML = '<div class="gt">Your level</div><div class="gs">Do 10 sessions to get your level (' + L.few + ' / 10).</div>'; el.title = ''; return; }
+  el.innerHTML = '<div class="lh"><span class="tg" style="background:' + L.level[2] + '">' + L.level[1] + '</span><a class="qm" data-help="level" title="How levels work">?</a></div>' + levelBars(L.level[1]) + '<div class="row2"><div><b>' + L.w + '</b><span>WPM</span></div><div><b>' + L.acc.toFixed(1) + '%</b><span>Accuracy</span></div></div>' + (L.held ? '<div class="gs">Held back by accuracy (needs 95%)</div>' : '');
+  el.title = 'Median speed and average accuracy of your last ' + L.n + ' sessions';
+}
+const LEVEL_RANGE = ['100+ WPM', '80–99 WPM', '60–79 WPM', '40–59 WPM', 'below 40 WPM'];
+function levelBars(cur) {
+  const n = LEVELS.length, ci = LEVELS.findIndex(l => l[1] === cur);
+  return '<div class="lbars">' + LEVELS.slice().reverse().map((l, k) => {
+    const idx = n - 1 - k, num = k + 1, st = idx < ci ? 'not reached yet' : idx === ci ? 'your level' : 'reached';
+    return '<i class="lb' + (idx >= ci ? ' f' : '') + '" style="' + (idx >= ci ? 'background:' + l[2] : '') + '" title="Level ' + num + ' of ' + n + ' · ' + l[1] + ' / ' + LEVEL_RANGE[idx] + ' · ' + st + '"></i>';
+  }).join('') + '</div>';
+}
+
+const GUIDE = [
+  ['level', 'Your level and tag', ['The tag is based on the median speed of your last 30 sessions (warm-ups and mistake replays are not counted). It needs at least 10 sessions.', 'Beginner: below 40 WPM. Intermediate: 40–59. Advanced: 60–79. Pro: 80–99. Pro Max: 100+.', 'Accuracy matters: if your average accuracy is below 95% you drop one level, below 90% two levels. The five bars under the tag show all levels: filled means reached, empty means still to come.']],
+  ['pass', 'Passing a lesson', ['A lesson is passed when you reach the pass speed and accuracy set in Settings (default 30 WPM and 95%).', 'After a pass, Tab or Enter goes to the next lesson. If you did not pass, Tab repeats the lesson. Missed words can be replayed 5 times each.', 'Weak-spot words mixed in do not count towards the pass mark.']],
+  ['stages', 'Advanced stages', ['18 optional stages from 45 to 110 WPM: steps of 5 up to 80, then steps of 3. They never affect normal practice.', 'Each lesson is 200 words. To unlock the next stage, finish 30 lessons where at least 90% reach the stage speed with 97% accuracy (96% from 86 WPM).', 'The first stage lesson each day is a slow warm-up and does not count.']],
+  ['weak', 'Weak keys and automatic practice', ['From your last 20 sessions the app finds weak keys, slow letter pairs and slow words, and mixes them into your lessons automatically.', 'Trigram and tetragram lessons use only real, common letter groups taken from everyday English words.']],
+  ['keys', 'Keys and shortcuts', ['Backspace fixes the last letter; mistakes still count against accuracy. In strict mode Backspace only clears the red mark.', 'Esc restarts the lesson. Tab goes to the next lesson after a pass. Enter also continues.', 'You can hide upcoming words (shown as grey blocks) to train looking ahead less.']],
+  ['pause', 'Pause when you stop typing', ['If you stop for 3 seconds (change it in Settings: off, 2, 3, 5 or 10) the app pauses and shows "Press any key to continue ...".', 'Paused time is not counted in WPM, daily minutes or the timed-test clock. A break reminder appears after 25 minutes of typing.']],
+  ['goal', 'Daily goal, streak and calendar', ['Set your daily goal in minutes. Progress resets at midnight.', 'Daily Practice splits the goal: warm-up 15%, lessons 40%, timed tests 25%, real text 20%.', 'A streak counts consecutive days with practice. The 12-week calendar and the road-to-your-goal forecast appear in Progress; the forecast needs at least 5 practice days.']],
+  ['safe', 'Backups, sync, passwords and Touch ID', ['A backup is saved automatically every week in Documents\\Afrad Typer\\Backups. You can also choose a sync folder (for example OneDrive) in Progress.', 'Passwords are per user and cannot be recovered. They keep other people out of your profile but are not encryption.', 'Touch ID is available in the Mac app only.']]
+];
+let guideOpen = 'level';
+function renderGuide(p) {
+  p.innerHTML = '<h2>How it works</h2><p class="muted">All the rules the app follows, in one place.</p>' + GUIDE.map(g =>
+    '<details class="gd" data-gid="' + g[0] + '"' + (g[0] === guideOpen ? ' open' : '') + '><summary>' + g[1] + '</summary>' + g[2].map(x => '<p>' + x + '</p>').join('') + '</details>').join('');
+}
 let goalEdit = false;
 function renderGoal() {
   const g = Math.max(1, S_().dailyGoalMinutes || 20), done = secondsToday() / 60, reached = done >= g;
   const el = $('#goal'); el.className = 'goal' + (reached ? ' done' : '');
-  el.innerHTML = '<div class="gt">Today\'s goal</div><div class="gv">' + Math.floor(done) + ' <small>/ ' + g + ' min</small></div><div class="gb"><i style="width:' + Math.min(100, done / g * 100).toFixed(0) + '%"></i></div>' +
+  el.innerHTML = '<div class="gt">Today\'s goal <a class="qm" data-help="goal" title="How the daily goal works">?</a></div><div class="gv">' + Math.floor(done) + ' <small>/ ' + g + ' min</small></div><div class="gb"><i style="width:' + Math.min(100, done / g * 100).toFixed(0) + '%"></i></div>' +
     '<div class="gs">' + (reached ? 'Goal reached ✓' : Math.max(1, g - Math.floor(done)) + ' min to go') + '</div>' +
     (goalEdit ? '<div class="gs"><input type="number" data-input="dailyGoalMinutes" min="5" max="480" step="5" value="' + g + '" style="width:60px"> min <a data-act="goal">Done</a></div>' : '<div class="gs"><a data-act="goal">Change goal</a></div>');
 }
@@ -598,6 +646,7 @@ document.addEventListener('click', e => {
   const t = e.target;
   let b;
   if ((b = t.closest('[data-tab]'))) { tab = b.dataset.tab; optsOpen = false; if (tab === 'practice' || tab === 'advanced') newSession(); else renderAll(); return; }
+  if ((b = t.closest('[data-help]'))) { guideOpen = b.dataset.help; tab = 'guide'; renderAll(); return; }
   if ((b = t.closest('[data-go]'))) { S_().mode = b.dataset.go; save(); tab = 'practice'; newSession(); return; }
   if ((b = t.closest('[data-set]'))) { applyInput(b.dataset.set, b.dataset.num ? Number(b.dataset.val) : b.dataset.val); return; }
   if ((b = t.closest('[data-act]'))) {

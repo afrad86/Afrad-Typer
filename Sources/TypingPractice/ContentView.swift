@@ -8,6 +8,7 @@ enum AppTab: String, CaseIterable, Identifiable {
     case progress = "Progress"
     case weakKeys = "Weak Spots"
     case library = "Library"
+    case guide = "How it works"
 
     var id: String { rawValue }
 
@@ -19,6 +20,7 @@ enum AppTab: String, CaseIterable, Identifiable {
         case .progress: return "chart.line.uptrend.xyaxis"
         case .weakKeys: return "exclamationmark.triangle"
         case .library: return "books.vertical"
+        case .guide: return "questionmark.circle"
         }
     }
 }
@@ -29,6 +31,12 @@ struct ContentView: View {
     @EnvironmentObject var session: AppSession
     var userName: String = ""
     @StateObject private var tabBox = Box<AppTab?>(.practice)
+    @StateObject private var guideFocus = Box<String>("level")
+
+    private func showGuide(_ id: String) {
+        guideFocus.value = id
+        tabBox.value = .guide
+    }
 
     private var hideSidebar: Bool {
         c.focusMode && (tabBox.value ?? .practice) == .practice
@@ -63,8 +71,11 @@ struct ContentView: View {
                     }
                     .padding(.horizontal, 8)
                     Spacer(minLength: 8)
-                    DailyGoalBox()
-                        .padding(.horizontal, 12)
+                    VStack(spacing: 8) {
+                        LevelBox(onHelp: { showGuide("level") })
+                        DailyGoalBox(onHelp: { showGuide("goal") })
+                    }
+                    .padding(.horizontal, 12)
                     Spacer(minLength: 8)
                     HStack {
                         if let cur = session.current {
@@ -113,6 +124,8 @@ struct ContentView: View {
             WeakKeysView()
         case .library:
             LibraryView(onUse: { tabBox.value = .practice })
+        case .guide:
+            GuideView(focus: guideFocus.value).id(guideFocus.value)
         }
     }
 }
@@ -121,6 +134,7 @@ struct ContentView: View {
 /// Sidebar box: minutes typed today against the daily goal. Sits between the tabs and the user.
 struct DailyGoalBox: View {
     @EnvironmentObject var store: Store
+    var onHelp: () -> Void = {}
     @StateObject private var showing = Box<Bool>(false)
 
     var body: some View {
@@ -129,7 +143,15 @@ struct DailyGoalBox: View {
         let reached = done >= Double(goal)
         let barColor = reached ? Color(nsColor: .systemGreen) : Color.accentColor
         return VStack(alignment: .leading, spacing: 6) {
-            Text("TODAY'S GOAL").font(.caption2).foregroundColor(.secondary)
+            HStack {
+                Text("TODAY'S GOAL").font(.caption2).foregroundColor(.secondary)
+                Spacer()
+                Button(action: onHelp) {
+                    Image(systemName: "questionmark.circle").foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("How the daily goal works")
+            }
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("\(Int(done))").font(.title2.weight(.semibold))
                 Text("/ \(goal) min").font(.caption).foregroundColor(.secondary)
@@ -154,5 +176,120 @@ struct DailyGoalBox: View {
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.12)))
+    }
+}
+
+
+/// Sidebar box: your level, from the median speed of your last 30 sessions, lowered by accuracy.
+struct LevelBox: View {
+    @EnvironmentObject var store: Store
+    var onHelp: () -> Void = {}
+
+    private static let ranges = ["100+ WPM", "80\u{2013}99 WPM", "60\u{2013}79 WPM", "40\u{2013}59 WPM", "below 40 WPM"]
+
+    private static let levels: [(Int, String, Color)] = [
+        (100, "Pro Max", Color.purple),
+        (80, "Pro", Color.yellow),
+        (60, "Advanced", Color.orange),
+        (40, "Intermediate", Color.green),
+        (0, "Beginner", Color.blue)
+    ]
+
+    private struct Assessment {
+        let wpm: Int
+        let accuracy: Double
+        let name: String
+        let color: Color
+        let held: Bool
+        let count: Int
+    }
+
+    private var recent: [SessionRecord] {
+        Array(store.data.history
+            .filter { !$0.detail.hasPrefix("Warm-up") && !$0.detail.hasPrefix("Mistake replay") }
+            .sorted { $0.date < $1.date }
+            .suffix(30))
+    }
+
+    /// Median speed (so a few odd runs do not move it), then one level lower below 95% accuracy and two below 90%.
+    private func assess(_ last: [SessionRecord]) -> Assessment? {
+        guard last.count >= 10 else { return nil }
+        let ws = last.map { $0.wpm }.sorted()
+        let m = ws.count / 2
+        let med = ws.count % 2 == 1 ? ws[m] : (ws[m - 1] + ws[m]) / 2
+        let wpm = Int(med.rounded())
+        let acc = last.map { $0.accuracy }.reduce(0, +) / Double(last.count)
+        let base = LevelBox.levels.firstIndex(where: { wpm >= $0.0 }) ?? (LevelBox.levels.count - 1)
+        let drop = acc < 90 ? 2 : (acc < 95 ? 1 : 0)
+        let idx = min(LevelBox.levels.count - 1, base + drop)
+        let lv = LevelBox.levels[idx]
+        return Assessment(wpm: wpm, accuracy: acc, name: lv.1, color: lv.2, held: idx > base, count: last.count)
+    }
+
+    private func tile(_ value: String, _ label: String) -> some View {
+        VStack(spacing: 1) {
+            Text(value).font(.headline)
+            Text(label).font(.caption2).foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.12)))
+    }
+
+    /// Five bars, lowest level on the left. Filled = reached, empty = still to come.
+    private func levelBars(current: String) -> some View {
+        let n = LevelBox.levels.count
+        let ci = LevelBox.levels.firstIndex(where: { $0.1 == current }) ?? (n - 1)
+        return HStack(spacing: 4) {
+            ForEach(0..<n, id: \.self) { k in
+                let idx = n - 1 - k
+                let lv = LevelBox.levels[idx]
+                let state = idx < ci ? "not reached yet" : (idx == ci ? "your level" : "reached")
+                ZStack {
+                    RoundedRectangle(cornerRadius: 3).fill(idx >= ci ? lv.2 : Color.clear)
+                    RoundedRectangle(cornerRadius: 3).stroke(Color.secondary.opacity(0.6), lineWidth: idx >= ci ? 0 : 1)
+                }
+                .frame(height: 8)
+                .help("Level \(k + 1) of \(n) \u{00B7} \(lv.1) / \(LevelBox.ranges[idx]) \u{00B7} \(state)")
+            }
+        }
+    }
+
+    var body: some View {
+        let last = recent
+        let result = assess(last)
+        return VStack(alignment: .leading, spacing: 6) {
+            if let a = result {
+                HStack {
+                    Text(a.name)
+                        .font(.caption.weight(.bold))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(a.color))
+                    Spacer()
+                    Button(action: onHelp) {
+                        Image(systemName: "questionmark.circle").foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("How levels work")
+                }
+                levelBars(current: a.name)
+                HStack(spacing: 8) {
+                    tile("\(a.wpm)", "WPM")
+                    tile(String(format: "%.1f%%", a.accuracy), "Accuracy")
+                }
+                if a.held {
+                    Text("Held back by accuracy (needs 95%)").font(.caption2).foregroundColor(.secondary)
+                }
+            } else {
+                Text("YOUR LEVEL").font(.caption2).foregroundColor(.secondary)
+                Text("Do 10 sessions to get your level (\(last.count) / 10).").font(.caption).foregroundColor(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.12)))
+        .help("Median speed and average accuracy of your last 30 sessions")
     }
 }
