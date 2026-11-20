@@ -1,5 +1,9 @@
 # Afrad Typer (personal macOS typing app)
 
+[![Download Afrad Typer](https://img.shields.io/badge/Download-Afrad%20Typer%20for%20Mac-orange?style=for-the-badge&logo=apple)](https://github.com/afrad86/Afrad-Typer/raw/main/release/Afrad-Typer.zip)
+
+Click the button, unzip, and drag "Afrad Typer" into Applications. (If you are not signed in to GitHub and the repo is private, sign in first.)
+
 ## Build on your Mac
 1. Open Terminal and `cd` into this folder.
 2. Make sure Swift is installed: `xcode-select --install` (skip if already installed).
