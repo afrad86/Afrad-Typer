@@ -26,3 +26,6 @@ Or on any computer with Node.js: `cd windows-web && npm install && npm run dist`
 - Your GitHub sign-in: after a fresh install, sign in again (personal access token) the first time you push.
 
 (c) 2026 Hassan Afrad. All rights reserved.
+
+## Releases
+Every release needs a NEW version number (VERSION file and windows-web/package.json, kept equal), or the in-app Help > Check for Updates will not offer it. build.sh writes release/version.json from VERSION. Always push the Mac and Windows builds together.

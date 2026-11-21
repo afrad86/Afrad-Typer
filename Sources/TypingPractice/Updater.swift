@@ -4,6 +4,13 @@ extension Notification.Name {
     static let openGuide = Notification.Name("AfradTyperOpenGuide")
 }
 
+/// Remembers whether a newer version was found, so the Help menu item can say "Update available".
+final class UpdateState: ObservableObject {
+    static let shared = UpdateState()
+    @Published var latest: String? = nil
+    var lastPeek = Date.distantPast
+}
+
 /// "Check for Updates": reads release/version.json from the project's GitHub page, and if a newer version exists,
 /// downloads it, replaces this app and reopens it. Your data is not touched.
 enum Updater {
@@ -34,6 +41,25 @@ enum Updater {
         return a.runModal() == .alertFirstButtonReturn
     }
 
+    /// Quiet check (no pop-ups): on launch and when the app comes back to the front, at most every 30 minutes.
+    static func peek() {
+        let st = UpdateState.shared
+        if Date().timeIntervalSince(st.lastPeek) < 1800 { return }
+        st.lastPeek = Date()
+        guard let url = URL(string: base + "version.json?t=\(Int(Date().timeIntervalSince1970))") else { return }
+        var req = URLRequest(url: url)
+        req.cachePolicy = .reloadIgnoringLocalCacheData
+        req.timeoutInterval = 15
+        URLSession.shared.dataTask(with: req) { data, _, _ in
+            guard let data = data,
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let latest = obj["version"] as? String else { return }
+            DispatchQueue.main.async {
+                st.latest = isNewer(latest, current) ? latest : nil
+            }
+        }.resume()
+    }
+
     static func about() {
         _ = alert("Afrad Typer", "Version \(current)\nCopyright \u{00A9} 2026 Hassan Afrad.")
     }
@@ -54,6 +80,7 @@ enum Updater {
                     _ = alert("Could not check for updates", "Check your internet connection and try again.")
                     return
                 }
+                UpdateState.shared.latest = isNewer(latest, current) ? latest : nil
                 if !isNewer(latest, current) {
                     busy = false
                     _ = alert("You're up to date", "Afrad Typer \(current) is the latest version.")
