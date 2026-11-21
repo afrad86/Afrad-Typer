@@ -295,10 +295,11 @@ final class Store: ObservableObject {
         let acc = data.settings.stageAccuracy(for: target)
         let runs = data.history.filter { $0.mode == PracticeMode.stages.rawValue && $0.detail.hasPrefix(prefix) }
         let minL = max(1, data.settings.stageMinLessons)
-        let recent = runs.suffix(minL)
-        let passed = recent.filter { $0.wpm >= Double(target) && $0.accuracy >= acc }.count
-        return StageDayReport(attempts: runs.count, window: recent.count, passed: passed,
-                              minLessons: minL, wordsPerLesson: max(10, data.settings.stageMinWords), target: target, accuracy: acc)
+        let outs = runs.map { $0.wpm >= Double(target) && $0.accuracy >= acc }
+        let pool = StageDayReport.pool(outs, size: minL)
+        return StageDayReport(attempts: runs.count, window: pool.count, passed: pool.filter { $0 }.count,
+                              minLessons: minL, wordsPerLesson: max(10, data.settings.stageMinWords), target: target, accuracy: acc,
+                              outcomes: outs)
     }
 
     func secondsToday(mode: PracticeMode? = nil) -> Double {

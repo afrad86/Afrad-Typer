@@ -242,7 +242,7 @@ struct StoreData: Codable {
 
 /// The strict stage ladder: steps of 5 WPM up to 80, then steps of 3 up to 110.
 /// Each stage lesson is 100 words by default (50, 100 or 200). To unlock the next stage you must finish at least
-/// 30 lessons at the stage, and in your latest 30 lessons at least 90% must reach the stage speed with
+/// 30 lessons at the stage, and at least 90% of your counted lessons must reach the stage speed (a miss stays counted until a later pass cancels it: each new pass cancels one earlier miss, and a new miss is simply added) with
 /// the required accuracy (97% up to 85 WPM, 96% from 86 WPM by default). It can take as many days as you need.
 enum StageRules {
     static let targets: [Int] = [45, 50, 55, 60, 65, 70, 75, 80, 83, 86, 89, 92, 95, 98, 101, 104, 107, 110]
@@ -260,12 +260,39 @@ struct StageDayReport {
     var wordsPerLesson: Int
     var target: Int
     var accuracy: Double
+    var outcomes: [Bool] = []   // every lesson at this stage, oldest first: true = passed
 
-    var needPassed: Int { Int((Double(minLessons) * StageRules.passFraction).rounded(.up)) }
+    var needPassed: Int { Int((Double(max(window, minLessons)) * StageRules.passFraction).rounded(.up)) }
     var cleared: Bool { window >= minLessons && passed >= needPassed }
 
+    /// Your counted lessons. The first `size` lessons all count. After that a new pass cancels your oldest earlier miss
+    /// (so the pool stays the same size), and a new miss is simply added (so the pool grows by one).
+    static func pool(_ outcomes: [Bool], size: Int) -> [Bool] {
+        var p: [Bool] = []
+        for o in outcomes {
+            if p.count >= size, o, let i = p.firstIndex(of: false) { p.remove(at: i) }
+            p.append(o)
+        }
+        return p
+    }
+
+    /// The fewest further lessons that would clear the stage, if every one of them passes (nil if it cannot be worked out).
+    var fastestRoute: Int? {
+        for k in 0...(outcomes.count + max(minLessons, 1) * 2) {
+            let p = StageDayReport.pool(outcomes + Array(repeating: true, count: k), size: minLessons)
+            if p.count >= minLessons && p.filter({ $0 }).count >= Int((Double(p.count) * StageRules.passFraction).rounded(.up)) { return k }
+        }
+        return nil
+    }
+
     var text: String {
-        return "Stage \(target) WPM: \(attempts) lessons finished. In your latest \(minLessons), \(passed) passed (\(passed) of \(window); you need \(needPassed) of \(minLessons)). Each lesson is \(wordsPerLesson) words at \(target)+ WPM with \(Int(accuracy))%+ accuracy."
+        return "Stage \(target) WPM: \(attempts) lessons finished. Among your \(window) counted lessons, \(passed) passed (you need \(needPassed) of \(max(window, minLessons))). Each lesson is \(wordsPerLesson) words at \(target)+ WPM with \(Int(accuracy))%+ accuracy." + route
+    }
+
+    private var route: String {
+        guard !cleared, let k = fastestRoute, k > 0 else { return "" }
+        let missed = window - passed
+        return " \(missed) of your \(window) counted lessons are misses. Fastest way to clear: pass the next \(k) lesson\(k == 1 ? "" : "s"). Each new pass removes one earlier miss. They do not have to be in a row; a new miss is simply added."
     }
 }
 

@@ -781,7 +781,7 @@ final class PracticeController: ObservableObject {
         let more = max(0, rep.minLessons - rep.window)
         var tail = ""
         if more > 0 { tail = " At least \(more) more lesson(s) needed." }
-        else { tail = " Keep going: you need \(rep.needPassed) passes among your latest \(rep.minLessons) lessons." }
+        else { tail = " Keep going: you need \(rep.needPassed) passes among \(max(rep.window, rep.minLessons)) counted lessons; each new pass cancels one earlier miss." }
         return reasons + " Not unlocked yet." + tail + " " + rep.text
     }
 

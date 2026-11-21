@@ -281,15 +281,37 @@ function stageMix(s, t) {
   const p = t < 60 ? 0 : t < 80 ? 3 : t < 95 ? 5 : 8;
   return { caps: p, punct: p };
 }
+// Your counted lessons. The first `size` lessons all count. After that a new pass cancels your oldest earlier miss
+// (the pool stays the same size) and a new miss is simply added (the pool grows by one).
+function stagePool(outs, size) {
+  const p = [];
+  for (const o of outs) {
+    if (p.length >= size && o) { const i = p.indexOf(false); if (i >= 0) p.splice(i, 1); }
+    p.push(o);
+  }
+  return p;
+}
 function stageReport(t) {
   const s = S_(), recs = data.history.filter(r => r.stage === t && isCounted(r));
-  const win = recs.slice(-s.stageMinLessons);
-  const passed = win.filter(r => r.passed).length;
-  const need = Math.ceil(s.stageMinLessons * 0.9);
+  const L = s.stageMinLessons, outs = recs.map(r => !!r.passed);
+  const win = stagePool(outs, L);
+  const passed = win.filter(Boolean).length;
+  const need = Math.ceil(Math.max(win.length, L) * 0.9);
+  const ok = win.length >= L && passed >= need;
+  let route = '';
+  if (!ok) {
+    for (let k = 1; k <= outs.length + L * 2; k++) {
+      const w = stagePool(outs.concat(Array(k).fill(true)), L);
+      if (w.length >= L && w.filter(Boolean).length >= Math.ceil(w.length * 0.9)) {
+        route = ' ' + (win.length - passed) + ' of your ' + win.length + ' counted lessons are misses. Fastest way to clear: pass the next ' + k + ' lesson' + (k === 1 ? '' : 's') + '. Each new pass removes one earlier miss. They do not have to be in a row; a new miss is simply added.';
+        break;
+      }
+    }
+  }
   return {
     attempts: recs.length, window: win.length, passed, need, target: t,
-    cleared: win.length >= s.stageMinLessons && passed >= need,
-    text: 'Stage ' + t + ' WPM: ' + recs.length + ' lessons finished. In your latest ' + s.stageMinLessons + ', ' + passed + ' passed (you need ' + need + ' of ' + s.stageMinLessons + '). Each lesson is ' + s.stageMinWords + ' words at ' + t + '+ WPM with ' + stageAccuracy(t) + '%+ accuracy.'
+    cleared: ok,
+    text: 'Stage ' + t + ' WPM: ' + recs.length + ' lessons finished. Among your ' + win.length + ' counted lessons, ' + passed + ' passed (you need ' + need + ' of ' + Math.max(win.length, L) + '). Each lesson is ' + s.stageMinWords + ' words at ' + t + '+ WPM with ' + stageAccuracy(t) + '%+ accuracy.' + route
   };
 }
 function nextStage(t) { return TARGETS.find(x => x > t); }

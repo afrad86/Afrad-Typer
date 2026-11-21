@@ -1,5 +1,5 @@
 {
- "version": "1.8.5",
+ "version": "1.8.7",
  "shell": "1.8.0",
  "base": "https://raw.githubusercontent.com/afrad86/Afrad-Typer/main/windows-web/",
  "files": {
@@ -7,8 +7,8 @@
   "style.css": "d3e983edcfc75cdeca0cf15799fd9110d3a00fe33e548865b447224448af981d",
   "data.js": "ad799a9c398c31c3506f173134f970c60f4d333b5d30eff0546ac7e92806f615",
   "books.js": "cd64e78a47236826711f536b993e019d532a36979acf05d28e2a9bc7aeeb41fb",
-  "core.js": "4442b0e714d668caf51cb2d97f3a4fc0d0f14700bf23c384a375ded9c6c2908f",
-  "ui.js": "6f5e64161183d3f8c1721df48a071959765b276d6174eba5f66c81fdb9a1c6f2",
+  "core.js": "cf6945ee775f31c5199b03221441d0bd4918f720e3cd058960bbba15d06957ff",
+  "ui.js": "f1199b0f6a87db8592b66e0bda6be42a229c039cfffbeec68e614ac55e8ea711",
   "desktop.js": "70f883728a0b9d2aaeea86e8b4f3f4108795a3235690fb9e1acfbafd0a80fc0f",
   "logo-96.png": "725667eda5e5e42c8e9229699a345def99c04ddb01a4345c7d8cf23d40d6d2e6",
   "logo-256.png": "8e9734fea463d96912c5e4b8ffeb24d462eb1d8c06b40a740f6448a719542ed9",

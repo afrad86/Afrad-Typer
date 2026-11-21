@@ -27,7 +27,7 @@ struct GuideView: View {
         ]),
         ("stages", "Advanced stages", [
             "18 optional stages from 45 to 110 WPM: steps of 5 up to 80, then steps of 3. They never affect normal practice.",
-            "Each lesson is \(s.stageMinWords) words. To unlock the next stage, finish \(s.stageMinLessons) lessons where at least 90% reach the stage speed with \(s.stageAccuracyLow)% accuracy (\(s.stageAccuracyHigh)% from 86 WPM).",
+            "Each lesson is \(s.stageMinWords) words. To unlock the next stage, finish \(s.stageMinLessons) lessons where at least 90% reach the stage speed with \(s.stageAccuracyLow)% accuracy (\(s.stageAccuracyHigh)% from 86 WPM). A miss stays counted until a later pass cancels it: each new pass cancels one earlier miss, and a new miss is simply added.",
             "The first stage lesson each day is a slow warm-up and does not count."
         ]),
         ("weak", "Weak keys and automatic practice", [

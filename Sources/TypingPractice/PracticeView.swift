@@ -252,7 +252,7 @@ struct PracticeView: View {
             }
         case .stages:
             VStack(spacing: 6) {
-                Text("Advanced stage \(settings.stageSelected) WPM. Each lesson is \(settings.stageMinWords) words. Finish \(settings.stageMinLessons) lessons, in any number of days; at least 90% of your latest \(settings.stageMinLessons) must reach \(settings.stageSelected) WPM at \(Int(settings.stageAccuracy(for: settings.stageSelected)))%+ accuracy before the next stage unlocks.")
+                Text("Advanced stage \(settings.stageSelected) WPM. Each lesson is \(settings.stageMinWords) words. Finish \(settings.stageMinLessons) lessons, in any number of days; at least 90% of your \(settings.stageMinLessons) counted lessons must reach \(settings.stageSelected) WPM at \(Int(settings.stageAccuracy(for: settings.stageSelected)))%+ accuracy before the next stage unlocks.")
                     .foregroundStyle(.secondary)
                 Text(store.stageDayReport(target: settings.stageSelected).text)
                     .font(.callout)
