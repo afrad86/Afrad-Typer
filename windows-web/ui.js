@@ -505,12 +505,14 @@ function renderPractice() {
   const showOpts = focus ? optsOpen : true;
   opts.hidden = !showOpts; opts.classList.toggle('pop', focus);
   let h = '';
-  h += '<div class="row"><b>Words ahead</b>' + (mode === 'stages' ? '<span class="muted"> always visible in stage lessons</span>' :
+  const aheadH = '<div class="row"><b>Words ahead</b>' + (mode === 'stages' ? '<span class="muted"> always visible in stage lessons</span>' :
     '<div class="radios">' + [[0, 'Always visible'], [1, 'Hide next word'], [2, 'Hide next two words']].map(o => '<button class="opt' + (s.hideAhead === o[0] ? ' on' : '') + '" data-set="hideAhead" data-val="' + o[0] + '" data-num="1">' + o[1] + '</button>').join('') + '</div>') + '</div>';
   if (mode === 'lessons') h += lessonPanelHtml(s);
   if (mode === 'timed' || mode === 'passages' || mode === 'symbols') h += modePanelHtml(s, mode);
   if (mode === 'stages') h += advancedPanelHtml(s);
   if (optsOpen) h += settingsHtml(s);
+  const ah = $('#ahead'); ah.hidden = focus;
+  if (focus) { h += aheadH; ah.innerHTML = ''; } else ah.innerHTML = aheadH;
   opts.innerHTML = h;
   renderTyping();
   updateStats();

@@ -15,13 +15,13 @@ textarea{width:100%}
 .muted{color:var(--muted)}
 .a{color:var(--accent)}
 .btn{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:6px 12px;cursor:pointer}
-#picker{height:calc(100vh - 30px);display:flex;align-items:center;justify-content:center}
+#picker{height:calc(100vh - 74px);display:flex;align-items:center;justify-content:center}
 .card{background:var(--panel);border-radius:14px;padding:32px 40px;width:440px;max-width:94vw;text-align:center}
 .biglogo{font-size:34px;font-weight:700}
 #plist{display:flex;flex-direction:column;gap:8px;margin:12px 0}
 .user{padding:10px;font-size:16px}.user.last{border-color:var(--accent)}
 .adduser{display:flex;gap:8px;margin:10px 0}.adduser input{flex:1}
-#app{display:flex;height:calc(100vh - 30px)}
+#app{display:flex;height:calc(100vh - 74px)}
 #side{width:190px;background:#242424;padding:14px 10px;display:flex;flex-direction:column;gap:6px;flex:none}
 .logo{font-size:24px;font-weight:700;margin:0 6px 10px}
 #nav{display:flex;flex-direction:column;gap:4px;flex:1}
@@ -162,3 +162,10 @@ button.link{background:none;border:none;color:var(--muted);padding:0;font-size:1
 .chip.on{background:var(--accent);color:#2a1600;font-weight:600}.chip.on:hover{background:#f59a58}
 .nin{display:inline-flex;align-items:center;gap:6px;color:#d6d6d6}
 .panel.hz input[type=checkbox],.tog input{accent-color:var(--accent)}
+
+#tbar{height:44px;display:flex;justify-content:center;align-items:center;padding:0 12px;overflow:hidden;white-space:nowrap;background:#232425;border-bottom:1px solid var(--line);color:#f0883e;-webkit-app-region:drag}
+#tbar .tl{position:relative;display:flex;justify-content:center;transform:translateY(-4px)}
+#tbar .ta{position:relative;font-family:'Pacifico',cursive;font-weight:400;font-size:clamp(14px,2.2vw,24px);line-height:1}
+#tbar .tt{position:absolute;left:50%;top:98%;transform:translateX(-50%);display:flex;gap:1.9em;font-weight:700;font-size:clamp(5.5px,.8vw,8.5px);letter-spacing:.55em;line-height:1;white-space:nowrap}
+#tbar .tt b{font-weight:700}
+#ahead{margin:4px 0}#ahead .row{margin:0}

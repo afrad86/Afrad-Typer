@@ -124,11 +124,12 @@ function create() {
   const wa = screen.getPrimaryDisplay().workAreaSize;
   const win = new BrowserWindow({
     width: Math.min(Math.round(wa.width * 0.92), 1700), height: Math.min(Math.round(wa.height * 0.94), 1250),
-    minWidth: 760, minHeight: 480, autoHideMenuBar: false, backgroundColor: '#2b2b2b', title: 'Afrad Typer',
+    minWidth: 760, minHeight: 480, autoHideMenuBar: false, backgroundColor: '#2b2b2b', title: ' ',
     icon: path.join(__dirname, 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
   });
   buildMenu(win);
+  win.on('page-title-updated', e => e.preventDefault());
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.once('did-finish-load', () => peekUpdate(win));
   win.on('focus', () => peekUpdate(win));

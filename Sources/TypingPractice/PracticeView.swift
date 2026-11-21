@@ -33,12 +33,15 @@ struct PracticeView: View {
                 topRow
                 if !c.focusMode {
                     statsRow
-                    aheadRow
                     if isLessonFamily { lessonPanel }
                     settingsSection
-                    ModeTabs()
+                    aheadRow
+                    infoBlock
                 }
-                typingArea
+                VStack(spacing: 0) {
+                    if !c.focusMode { ModeTabs() }
+                    typingArea
+                }
                 if !c.focusMode {
                     Text("Click the text area, then just type  ·  Backspace fixes mistakes  ·  Esc restarts  ·  Return continues")
                         .font(.caption)
@@ -92,7 +95,6 @@ struct PracticeView: View {
             if c.settingsOpen {
                 extrasBar
             }
-            infoBlock
         }
     }
 
