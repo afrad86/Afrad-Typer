@@ -111,6 +111,7 @@ function buildMenu(win) {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { role: 'editMenu' },
     { label: 'Help', submenu: [
+      { label: 'Getting started', click: () => win.webContents.send('open-welcome') },
       { label: 'How it works', click: () => win.webContents.send('open-guide') },
       { type: 'separator' },
       { label: pendingVersion ? 'Update available v' + pendingVersion + '…' : 'Check for updates…', click: () => checkUpdates(win) },
@@ -128,6 +129,7 @@ function create() {
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
   });
   buildMenu(win);
+  win.webContents.setWindowOpenHandler(({ url }) => { if (/^https:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.once('did-finish-load', () => peekUpdate(win));
   win.on('focus', () => peekUpdate(win));
   win.loadFile(path.join(__dirname, 'index.html'));

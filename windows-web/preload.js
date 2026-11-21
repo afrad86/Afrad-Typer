@@ -9,5 +9,6 @@ contextBridge.exposeInMainWorld('desktop', {
   syncList: () => ipcRenderer.invoke('syncList'),
   syncRead: name => ipcRenderer.invoke('syncRead', name),
   syncWrite: (name, json) => ipcRenderer.invoke('syncWrite', name, json),
-  onGuide: cb => ipcRenderer.on('open-guide', () => cb())
+  onGuide: cb => ipcRenderer.on('open-guide', () => cb()),
+  onWelcome: cb => ipcRenderer.on('open-welcome', () => cb())
 });

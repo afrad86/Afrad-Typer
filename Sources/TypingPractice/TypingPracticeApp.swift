@@ -23,6 +23,9 @@ struct WindowFitter: NSViewRepresentable {
 struct TypingPracticeApp: App {
     @StateObject private var session = AppSession()
     @StateObject private var updates = UpdateState.shared
+    @StateObject private var welcome = WelcomeState.shared
+
+    init() { BundledFonts.register() }
 
     /// The minimum width never exceeds what the screen can show.
     private static var minWidth: CGFloat {
@@ -37,10 +40,12 @@ struct TypingPracticeApp: App {
                 .frame(minWidth: TypingPracticeApp.minWidth, minHeight: 480)
                 .background(WindowFitter())
                 .onAppear { Updater.peek() }
+                .sheet(isPresented: $welcome.show) { WelcomeView(onClose: { welcome.show = false }) }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in Updater.peek() }
         }
         .commands {
             CommandGroup(replacing: .help) {
+                Button("Getting started") { welcome.show = true }
                 Button("How it works") { NotificationCenter.default.post(name: .openGuide, object: nil) }
                 Divider()
                 Button(updates.latest.map { "Update available v\($0)\u{2026}" } ?? "Check for Updates\u{2026}") { Updater.check() }

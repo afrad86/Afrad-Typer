@@ -325,6 +325,7 @@ function retry() { newSession(T && T.replay ? { replayWords: T.replayWords } : n
 
 /* ---------- key handling ---------- */
 window.addEventListener('keydown', e => {
+  if (document.getElementById('welcome')) { if (e.key === 'Escape') closeWelcome(false); return; }
   if (!$('#app') || $('#app').hidden || !T) return;
   if (!$('#modal').hidden) { if (e.key === 'Enter') { e.preventDefault(); $('#modal-ok').click(); } return; }
   if (tab !== 'practice' && tab !== 'advanced') return;
@@ -823,5 +824,43 @@ document.addEventListener('click', async e => {
   if (e.target.id === 'padduser') { const n = $('#newuser').value.trim(); if (n) { $('#newuser').value = ''; enter(n); } }
 });
 document.addEventListener('keydown', e => { if (e.target.id === 'newuser' && e.key === 'Enter') $('#padduser').click(); });
+
+/* ---------- welcome screen (first run, and Help > Getting started) ---------- */
+const WELCOME_LINKS = [
+  ['Typing.com', 'Beginner course: finger placement, home row, every key', 'https://www.typing.com'],
+  ['TypingClub', 'Short guided lessons with a virtual hand on screen', 'https://www.typingclub.com'],
+  ['Keybr.com', 'Adaptive practice that builds up the keys one by one', 'https://www.keybr.com']
+];
+function closeWelcome(finish) {
+  const w = document.getElementById('welcome'); if (!w) return;
+  const cb = w.querySelector('#wdont');
+  if (finish && cb && cb.checked) { try { localStorage.setItem(LS + 'welcomeSeen', '1'); } catch (e) { /* ignore */ } }
+  w.remove();
+}
+function showWelcome() {
+  if (document.getElementById('welcome')) return;
+  const cap = (k, c) => '<i class="wk' + (c ? ' h' : '') + '"' + (c ? ' style="--c:' + c + '"' : '') + '>' + k + '</i>';
+  const row = (keys, cols) => '<div class="wr">' + keys.map((k, i) => cap(k, cols && cols[i])).join('') + '</div>';
+  const el = document.createElement('div'); el.id = 'welcome';
+  el.innerHTML = '<div class="wcard">' +
+    '<div class="whead"><div class="whi">Welcome to</div><div class="wn1">Afrad</div><div class="wn2">TOUCH TYPING</div><p class="wsub">Please read this first. It takes one minute.</p></div>' +
+    '<div class="wnote"><b>This app is for people who already touch type.</b> It trains <b>speed</b> and <b>accuracy</b>. It does not teach you where your fingers go or which finger presses which key. If you still look at the keyboard and type with two fingers, learn the basics first (links below), then come back.</div>' +
+    '<div class="wkb"><div class="wkt">What "touch typing" means: eight fingers on the home row, eyes on the screen</div>' +
+    row(['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P']) +
+    row(['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';'], ['#c78bff', '#5fb878', '#f0883e', '#e8d44d', 0, 0, '#e8d44d', '#f0883e', '#5fb878', '#c78bff']) +
+    row(['Z', 'X', 'C', 'V', 'B', 'N', 'M']) +
+    '<div class="wtips">Rest on <b>A S D F</b> and <b>J K L ;</b> · Feel the bumps on <b>F</b> and <b>J</b> · Thumbs on the space bar</div></div>' +
+    '<h3 class="wh3">New to touch typing? Learn it first, free</h3>' +
+    WELCOME_LINKS.map(l => '<a class="wlink" href="' + l[2] + '" target="_blank" rel="noopener"><div><b>' + l[0] + '</b><small>' + l[1] + '</small></div><span>Open in browser ↗</span></a>').join('') +
+    '<div class="wcta"><button class="wstart" id="wstart">Yes, I can touch type <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>' +
+    '<a class="wlater" id="wlater">Not yet, remind me next time</a>' +
+    '<label class="wdont"><input type="checkbox" id="wdont" checked> Don\'t show this again</label></div>' +
+    '<div class="wcopy">Copyright © 2026 Hassan Afrad. All rights reserved.</div></div>';
+  document.body.appendChild(el);
+  $('#wstart').onclick = () => closeWelcome(true);
+  $('#wlater').onclick = () => closeWelcome(false);
+}
+function maybeWelcome() { let seen = false; try { seen = localStorage.getItem(LS + 'welcomeSeen') === '1'; } catch (e) { /* ignore */ } if (!seen) showWelcome(); }
 showPicker();
+maybeWelcome();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });

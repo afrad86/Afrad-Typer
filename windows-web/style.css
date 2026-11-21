@@ -119,3 +119,27 @@ button.link{background:none;border:none;color:var(--muted);padding:0;font-size:1
 .lbars{display:flex;gap:4px;margin-top:6px}.lb{flex:1;height:8px;border-radius:3px;border:1px solid #666;box-sizing:border-box;background:transparent}.lb.f{border-color:transparent}
 .wl{font-size:12px;color:var(--muted);margin:2px 0}.wl .wk{display:inline-block;width:62px}
 .gd{background:#2b2b2b;border-radius:10px;padding:10px 14px;margin:8px 0}.gd summary{cursor:pointer;font-weight:600}.gd p{color:var(--muted);margin:8px 0 0}
+
+@font-face{font-family:'Pacifico';src:url('fonts/Pacifico.woff2') format('woff2');font-display:swap}
+#welcome{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:50;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px}
+#welcome .wcard{width:640px;max-width:100%;background:#2b2b2b;border-radius:16px;padding:26px 30px;box-shadow:0 20px 60px rgba(0,0,0,.5);margin:auto}
+.whead{text-align:center;margin-bottom:16px}.whi{font-size:14px;color:#bdbdbd;letter-spacing:.05em}
+.wn1{font-family:'Pacifico','Segoe Script',cursive;color:#ffd23f;font-size:56px;line-height:1.45;margin-top:-2px;text-shadow:0 2px 16px rgba(255,210,63,.28)}
+.wn2{font-weight:700;font-size:15px;letter-spacing:.5em;padding-left:.5em;color:#e8e8e8;margin:-1px 0 4px}
+.wsub{margin:12px 0 0;color:#9a9a9a}
+.wnote{background:#33302a;border:1px solid #6b5a2e;border-radius:10px;padding:12px 14px;margin:0 0 16px}.wnote b:first-child{color:#f0c35a}
+.wkb{background:#232323;border-radius:12px;padding:14px;margin:0 0 16px;text-align:center}
+.wkt{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:#9a9a9a;margin-bottom:8px}
+.wr{display:flex;gap:5px;justify-content:center;margin:4px 0}
+.wk{width:34px;height:34px;border-radius:7px;background:#3a3a3a;display:flex;align-items:center;justify-content:center;font-weight:600;font-style:normal;color:#cfcfcf}
+.wk.h{outline:2px solid var(--c);color:#fff;background:#303030;outline-offset:-2px}
+.wtips{font-size:12.5px;color:#bdbdbd;margin-top:10px}
+.wh3{font-size:15px;font-weight:700;color:#5fd7b4;margin:0 0 10px}
+.wlink{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:#333;margin:0 0 6px;color:#e8e8e8;text-decoration:none}
+.wlink:hover{background:#3c3c3c}.wlink b{display:block}.wlink small{color:#9a9a9a}.wlink span{margin-left:auto;color:#8ab4f8;font-size:12px;white-space:nowrap}
+.wcta{margin-top:18px;display:flex;flex-direction:column;align-items:center;gap:10px}
+.wstart{width:100%;display:flex;align-items:center;justify-content:center;gap:12px;font-size:17px;font-weight:700;color:#2a2100;background:linear-gradient(180deg,#ffe066,#ffc928);border:0;border-radius:14px;padding:15px 22px;cursor:pointer;box-shadow:0 8px 24px rgba(255,201,40,.28),inset 0 1px 0 rgba(255,255,255,.55);transition:transform .15s,box-shadow .15s}
+.wstart:hover{transform:translateY(-1px);box-shadow:0 12px 30px rgba(255,201,40,.38),inset 0 1px 0 rgba(255,255,255,.55)}.wstart svg{transition:transform .15s}.wstart:hover svg{transform:translateX(4px)}
+.wlater{color:#9a9a9a;font-size:13px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.wdont{font-size:12.5px;color:#8a8a8a;display:flex;gap:6px;align-items:center}
+.wcopy{text-align:center;color:#8a8a8a;font-size:12px;margin-top:16px;padding-top:12px;border-top:1px solid #3a3a3a}

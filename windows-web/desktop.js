@@ -90,3 +90,4 @@ document.addEventListener('click', async e => {
 })();
 
 if (DESK && DESK.onGuide) DESK.onGuide(() => { guideOpen = 'level'; tab = 'guide'; renderAll(); });
+if (DESK && DESK.onWelcome) DESK.onWelcome(() => showWelcome());

@@ -60,6 +60,10 @@ VERSION="$(tr -d '[:space:]' < VERSION)"
 if [ -f Resources/Logo.png ]; then
   cp Resources/Logo.png "$BUNDLE.app/Contents/Resources/Logo.png"
 fi
+if [ -f Resources/Pacifico-Regular.ttf ]; then
+  cp Resources/Pacifico-Regular.ttf "$BUNDLE.app/Contents/Resources/"
+  cp Resources/Pacifico-OFL.txt "$BUNDLE.app/Contents/Resources/" 2>/dev/null || true
+fi
 if [ -f "$OUT/AppIcon.icns" ]; then
   cp "$OUT/AppIcon.icns" "$BUNDLE.app/Contents/Resources/AppIcon.icns"
 fi
