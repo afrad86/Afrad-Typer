@@ -4,6 +4,7 @@ struct ProgressScreen: View {
     @EnvironmentObject var store: Store
     @StateObject private var filterBox = Box("All")
     @StateObject private var resetBox = Box(false)
+    @StateObject private var cache = ProgressCache()
 
     private struct Point: Identifiable {
         let id: Int
@@ -12,21 +13,32 @@ struct ProgressScreen: View {
         let avg: Double
     }
 
-    private var filtered: [SessionRecord] {
+    private func refresh() {
+        let key = "\(store.data.history.count)|\(store.data.history.last?.id.uuidString ?? "")|\(filterBox.value)"
+        guard key != cache.key else { return }
+        cache.key = key
         let sorted = store.data.history.filter { $0.isCounted }.sorted { $0.date < $1.date }
-        return filterBox.value == "All" ? sorted : sorted.filter { $0.mode == filterBox.value }
+        let list = filterBox.value == "All" ? sorted : sorted.filter { $0.mode == filterBox.value }
+        var out: [Point] = []
+        var sum = 0.0
+        for (i, r) in list.enumerated() {
+            sum += r.wpm
+            if i >= 10 { sum -= list[i - 10].wpm }
+            let n = Double(min(i + 1, 10))
+            out.append(Point(id: i + 1, wpm: r.wpm, acc: r.accuracy, avg: sum / n))
+        }
+        cache.list = list
+        cache.points = out
+    }
+
+    private var filtered: [SessionRecord] {
+        refresh()
+        return cache.list
     }
 
     private var points: [Point] {
-        let list = filtered
-        var out: [Point] = []
-        for (i, r) in list.enumerated() {
-            let lo = max(0, i - 9)
-            let window = list[lo...i]
-            let avg = window.map { $0.wpm }.reduce(0, +) / Double(window.count)
-            out.append(Point(id: i + 1, wpm: r.wpm, acc: r.accuracy, avg: avg))
-        }
-        return out
+        refresh()
+        return cache.points as? [Point] ?? []
     }
 
     private var last10: [SessionRecord] { Array(filtered.suffix(10)) }
@@ -181,4 +193,11 @@ struct ProgressScreen: View {
             }
         }
     }
+}
+
+/// Remembers the sorted session list and chart points until the history or the filter changes.
+final class ProgressCache: ObservableObject {
+    var key = ""
+    var list: [SessionRecord] = []
+    var points: [Any] = []
 }

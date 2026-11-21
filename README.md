@@ -3,7 +3,7 @@
 <h1 align="center">Afrad</h1>
 <p align="center"><b>T O U C H &nbsp; T Y P I N G</b></p>
 
-[![Download for MacOS](Resources/badge-macos.svg)](https://github.com/afrad86/Afrad-Typer/raw/main/release/Afrad-Typer.zip) [![Download for Windows](Resources/badge-win.svg)](https://github.com/afrad86/Afrad-Typer/raw/main/release/Afrad-Typer-Windows.exe)
+[![Download for MacOS](Resources/badge-macos.svg)](https://github.com/afrad86/Afrad-Typer/releases/latest/download/Afrad-Typer.zip) [![Download for Windows](Resources/badge-win.svg)](https://github.com/afrad86/Afrad-Typer/releases/latest/download/Afrad-Typer-Setup.exe)
 
 ## Install
 
@@ -14,7 +14,7 @@
 
 **Windows**
 1. Click the blue **Download FOR WINDOWS** button.
-2. Double-click `Afrad-Typer-Windows.exe`. There is nothing to install.
+2. Double-click `Afrad-Typer-Setup.exe`. It installs in a few seconds (no administrator rights needed), adds a Start menu and desktop shortcut, and opens the app.
 3. If Windows shows a blue "Windows protected your PC" box, click **More info**, then **Run anyway** (the app is not code-signed).
 
 ## What it does

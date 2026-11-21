@@ -28,13 +28,20 @@ struct SessionResult {
     var note: String? = nil
 }
 
+/// Ticks at every key press and clock update. Only the typing box and the live numbers watch it,
+/// so the rest of the Practice screen is not redrawn at every key.
+final class LiveTick: ObservableObject {
+    @Published var n = 0
+}
+
 final class PracticeController: ObservableObject {
     let store: Store
+    let live = LiveTick()
 
     @Published var target: [Character] = []
-    @Published var states: [CharState] = []
-    @Published var pos = 0
-    @Published var elapsed: TimeInterval = 0
+    var states: [CharState] = [] { didSet { live.n &+= 1 } }
+    var pos = 0 { didSet { live.n &+= 1 } }
+    var elapsed: TimeInterval = 0 { didSet { live.n &+= 1 } }
     @Published var started = false
     /// True while the clock is stopped because you stopped typing (away from the keyboard).
     @Published var paused = false
@@ -897,10 +904,17 @@ final class PracticeController: ObservableObject {
         }
     }
 
+    private static var sounds: [String: NSSound] = [:]
+
+    /// System sounds are loaded once and reused (loading one at every mistake costs time).
     private func play(_ name: String) {
-        if store.data.settings.sounds {
-            NSSound(named: NSSound.Name(name))?.play()
+        guard store.data.settings.sounds else { return }
+        if PracticeController.sounds[name] == nil, let snd = NSSound(named: NSSound.Name(name)) {
+            PracticeController.sounds[name] = snd
         }
+        guard let snd = PracticeController.sounds[name] else { return }
+        if snd.isPlaying { snd.stop() }
+        snd.play()
     }
 
     private func topPairs(limit: Int) -> [String: KeyStat] {

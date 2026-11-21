@@ -76,11 +76,11 @@ codesign --force --deep --sign - "$BUNDLE.app"
 
 ditto -c -k --keepParent "$BUNDLE.app" "$BUNDLE.zip"
 
-# Copy for the repository, so another Mac can use the app without building it
+# Copy for the GitHub release (not stored in the repository itself)
 mkdir -p release
 cp "$BUNDLE.zip" release/Afrad-Typer.zip
-REPO="https://raw.githubusercontent.com/afrad86/Afrad-Typer/main/release"
-printf '{"version":"%s","mac":"%s/Afrad-Typer.zip","windows":"%s/Afrad-Typer-Windows.exe"}\n' "$VERSION" "$REPO" "$REPO" > release/version.json
+# Update information (big files come from the GitHub release of this version)
+python3 tools/make_release_info.py
 rm -rf "$OUT"
 
 echo ""

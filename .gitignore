@@ -4,10 +4,10 @@
 .build/
 *.xcuserstate
 xcuserdata/
-!release/Afrad-Typer.zip
 node_modules/
 windows-web/dist/
-!release/Afrad-Typer-Windows.exe
 Claude outputs/
 tools/cache/
 tools/__pycache__/
+release/*.zip
+release/*.exe

@@ -4,6 +4,7 @@ const os = require('os');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const cfgFile = () => path.join(app.getPath('userData'), 'desktop-config.json');
 function readCfg() { try { return JSON.parse(fs.readFileSync(cfgFile(), 'utf8')); } catch (e) { return {}; } }
@@ -74,38 +75,90 @@ function fetchTo(url, dest, hops) {
   });
 }
 let pendingVersion = null, lastPeek = 0, menuWin = null;
+
+/* Small updates: when only the app's own pages change (not the Windows shell), the update downloads just those files
+   (a few hundred KB) into the user folder and the app loads them from there. A full installer is needed only when
+   "shell" in version.json is newer than this installed program. Every file is checked against its fingerprint. */
+const webDir = () => path.join(app.getPath('userData'), 'app-web');
+function webInfo() {
+  try {
+    const w = JSON.parse(fs.readFileSync(path.join(webDir(), 'manifest.json'), 'utf8'));
+    if (w.version && newer(w.version, app.getVersion()) && !newer(w.shell || '0', app.getVersion()) && fs.existsSync(path.join(webDir(), 'index.html'))) return w;
+  } catch (e) { /* none yet */ }
+  return null;
+}
+const currentVersion = () => { const w = webInfo(); return w ? w.version : app.getVersion(); };
+const startPage = () => (webInfo() ? path.join(webDir(), 'index.html') : path.join(__dirname, 'index.html'));
+const sha256 = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+async function smallUpdate(info) {
+  const man = JSON.parse(await fetchTo(info.web + '?t=' + Date.now()));
+  if (!man.version || !man.files || man.version !== info.version) throw new Error('manifest not ready');
+  const base = man.base, fresh = webDir() + '-new', old = webDir() + '-old';
+  fs.rmSync(fresh, { recursive: true, force: true });
+  for (const [name, hash] of Object.entries(man.files)) {
+    const dest = path.join(fresh, name);
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    await fetchTo(base + name + '?v=' + man.version + '&t=' + Date.now(), dest);
+    if (sha256(dest) !== hash) throw new Error('file not ready: ' + name);
+  }
+  fs.writeFileSync(path.join(fresh, 'manifest.json'), JSON.stringify({ version: man.version, shell: man.shell || '0' }));
+  fs.rmSync(old, { recursive: true, force: true });
+  if (fs.existsSync(webDir())) fs.renameSync(webDir(), old);
+  fs.renameSync(fresh, webDir());
+  fs.rmSync(old, { recursive: true, force: true });
+}
 /* Quiet check on start and when the window is focused again (at most every 30 minutes): relabels the Help item. */
 async function peekUpdate(win) {
   if (Date.now() - lastPeek < 30 * 60 * 1000) return;
   lastPeek = Date.now();
   try {
     const info = JSON.parse(await fetchTo(BASE + 'version.json?t=' + Date.now()));
-    const p = info.version && newer(info.version, app.getVersion()) ? info.version : null;
+    const p = info.version && newer(info.version, currentVersion()) ? info.version : null;
     if (p !== pendingVersion) { pendingVersion = p; buildMenu(win); }
   } catch (e) { /* offline: keep the plain label */ }
+}
+async function fullUpdate(win, info, box) {
+  const tmp = path.join(os.tmpdir(), 'Afrad-Typer-Setup-' + info.version + '.exe');
+  try {
+    win.setTitle('Afrad Touch Typing — downloading update…');
+    await fetchTo(info.windows, tmp);
+    if (fs.statSync(tmp).size < 20 * 1024 * 1024) throw new Error('too small');
+  } catch (e) { win.setTitle('Afrad Touch Typing'); return box({ type: 'error', message: 'Update failed', detail: 'The download did not finish. Check your internet connection and try again.' }); }
+  const portable = process.env.PORTABLE_EXECUTABLE_FILE;
+  if (portable) {
+    // an old single-file copy: put the installer in its place and start it; it installs the app properly
+    const bat = path.join(os.tmpdir(), 'afrad-update.bat');
+    fs.writeFileSync(bat, ['@echo off', 'set N=0', ':retry', 'timeout /t 1 /nobreak >nul', 'move /Y "' + tmp + '" "' + portable + '" >nul 2>&1', 'if errorlevel 1 (', '  set /a N+=1', '  if %N% lss 40 goto retry', '  exit /b 1', ')', 'start "" "' + portable + '"', '(goto) 2>nul & del "%~f0"'].join('\r\n'));
+    spawn('cmd.exe', ['/c', bat], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+  } else {
+    spawn(tmp, [], { detached: true, stdio: 'ignore' }).unref();
+  }
+  app.quit();
 }
 async function checkUpdates(win) {
   const box = o => dialog.showMessageBox(win, Object.assign({ type: 'info', buttons: ['OK'] }, o));
   let info;
   try { info = JSON.parse(await fetchTo(BASE + 'version.json?t=' + Date.now())); } catch (e) { return box({ message: 'Could not check for updates', detail: 'Check your internet connection and try again.' }); }
-  const cur = app.getVersion();
+  const cur = currentVersion();
   const np = info.version && newer(info.version, cur) ? info.version : null;
   if (np !== pendingVersion) { pendingVersion = np; buildMenu(win); }
-  if (!info.version || !newer(info.version, cur)) return box({ message: "You're up to date", detail: 'Afrad Touch Typing ' + cur + ' is the latest version.' });
-  const r = await box({ type: 'question', buttons: ['Install and restart', 'Later'], defaultId: 0, cancelId: 1, message: 'Update available: ' + info.version, detail: 'You have ' + cur + '. The app will download the update, replace itself and reopen. Your progress is kept.' });
+  if (!np) return box({ message: "You're up to date", detail: 'Afrad Touch Typing ' + cur + ' is the latest version.' });
+  const needsFull = !info.web || newer(info.shell || info.version, app.getVersion()) || !!process.env.PORTABLE_EXECUTABLE_FILE;
+  const r = await box({ type: 'question', buttons: ['Install and restart', 'Later'], defaultId: 0, cancelId: 1, message: 'Update available: ' + info.version,
+    detail: 'You have ' + cur + '. ' + (needsFull ? 'The app will download the installer (about 70 MB), update itself and reopen.' : 'This is a small update (a few hundred KB); the app restarts when it is done.') + ' Your progress is kept.' });
   if (r.response !== 0) return;
-  const target = process.env.PORTABLE_EXECUTABLE_FILE;
-  if (!target) return box({ message: 'This copy cannot update itself', detail: 'Download the latest Afrad-Typer-Windows.exe from the project page instead.' });
-  const tmp = path.join(os.tmpdir(), 'AfradTyper-update.exe');
-  try {
-    win.setTitle('Afrad Touch Typing — downloading update…');
-    await fetchTo(info.windows || (BASE + 'Afrad-Typer-Windows.exe'), tmp);
-    if (fs.statSync(tmp).size < 20 * 1024 * 1024) throw new Error('too small');
-  } catch (e) { win.setTitle('Afrad Touch Typing'); return box({ type: 'error', message: 'Update failed', detail: 'The download did not finish. Check your internet connection and try again.' }); }
-  const bat = path.join(os.tmpdir(), 'afrad-update.bat');
-  fs.writeFileSync(bat, ['@echo off', 'set N=0', ':retry', 'timeout /t 1 /nobreak >nul', 'move /Y "' + tmp + '" "' + target + '" >nul 2>&1', 'if errorlevel 1 (', '  set /a N+=1', '  if %N% lss 40 goto retry', '  exit /b 1', ')', 'start "" "' + target + '"', '(goto) 2>nul & del "%~f0"'].join('\r\n'));
-  spawn('cmd.exe', ['/c', bat], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
-  app.quit();
+  if (!needsFull) {
+    try {
+      win.setTitle('Afrad Touch Typing — updating…');
+      await smallUpdate(info);
+      app.relaunch(); app.exit(0); return;
+    } catch (e) {
+      win.setTitle('Afrad Touch Typing');
+      const f = await box({ type: 'question', buttons: ['Download full installer', 'Later'], defaultId: 0, cancelId: 1, message: 'The small update did not finish', detail: 'The new files may still be on their way to the server. Try again in a few minutes, or download the full installer now.' });
+      if (f.response !== 0) return;
+    }
+  }
+  return fullUpdate(win, info, box);
 }
 function buildMenu(win) {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
@@ -115,7 +168,7 @@ function buildMenu(win) {
       { label: 'How it works', click: () => win.webContents.send('open-guide') },
       { type: 'separator' },
       { label: pendingVersion ? 'Update available v' + pendingVersion + '…' : 'Check for updates…', click: () => checkUpdates(win) },
-      { label: 'About Afrad Touch Typing', click: () => dialog.showMessageBox(win, { type: 'info', message: 'Afrad Touch Typing', detail: 'Version ' + app.getVersion() + '\nCopyright © 2026 Hassan Afrad.' }) }
+      { label: 'About Afrad Touch Typing', click: () => dialog.showMessageBox(win, { type: 'info', message: 'Afrad Touch Typing', detail: 'Version ' + currentVersion() + '\nCopyright © 2026 Hassan Afrad.' }) }
     ] }
   ]));
 }
@@ -132,7 +185,7 @@ function create() {
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.once('did-finish-load', () => peekUpdate(win));
   win.on('focus', () => peekUpdate(win));
-  win.loadFile(path.join(__dirname, 'index.html'));
+  win.loadFile(startPage());
 }
 app.whenReady().then(create);
 app.on('window-all-closed', () => app.quit());

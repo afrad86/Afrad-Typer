@@ -102,7 +102,7 @@ struct ContentView: View {
             .padding(.vertical, 6)
         }
         .onAppear {
-            NSApp.applicationIconImage = AppIcon.make()
+            NSApp.applicationIconImage = AppIcon.cached
         }
         .onReceive(NotificationCenter.default.publisher(for: .openGuide)) { _ in showGuide("level") }
     }

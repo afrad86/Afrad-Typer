@@ -9,6 +9,9 @@ enum AppIcon {
     }()
 
     /// The "A" app icon, drawn in code so the Dock shows it while the app is running.
+    /// Drawn once per launch and reused.
+    static let cached: NSImage = make()
+
     static func make(size: CGFloat = 512) -> NSImage {
         if let l = logo { return l }
         return NSImage(size: NSSize(width: size, height: size), flipped: false) { rect in
