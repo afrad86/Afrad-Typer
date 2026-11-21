@@ -4,9 +4,13 @@ import AppKit
 enum Brand {
     static let orange = Color(red: 0.94, green: 0.53, blue: 0.24)
     static let yellow = Color(red: 1.0, green: 0.82, blue: 0.25)
+    // Calm colours for chosen options
+    static let slate = Color(red: 0.227, green: 0.275, blue: 0.345)
+    static let slateLine = Color(red: 0.365, green: 0.435, blue: 0.533)
+    static let slateText = Color(red: 0.93, green: 0.95, blue: 0.98)
 }
 
-/// A rounded choice button. Selected = orange; hovering tints orange.
+/// A rounded choice button. Chosen = calm slate; hovering = a soft grey.
 struct OptionChip: View {
     let title: String
     let selected: Bool
@@ -15,18 +19,24 @@ struct OptionChip: View {
     @StateObject private var hover = Box<Bool>(false)
 
     private var fill: Color {
-        if selected { return hover.value ? Color(red: 0.96, green: 0.60, blue: 0.34) : Brand.orange }
-        return hover.value ? Brand.orange.opacity(0.35) : Color.secondary.opacity(0.18)
+        if selected { return Brand.slate }
+        return hover.value ? Color.secondary.opacity(0.22) : Color.clear
+    }
+
+    private var line: Color {
+        if selected { return Brand.slateLine }
+        return hover.value ? Color.secondary.opacity(0.45) : Color.secondary.opacity(0.28)
     }
 
     var body: some View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 13, weight: selected ? .semibold : .regular))
-                .foregroundColor(selected ? Color(red: 0.16, green: 0.09, blue: 0.0) : Color.primary)
+                .foregroundColor(selected ? Brand.slateText : (hover.value ? Color.primary : Color.secondary))
                 .padding(.horizontal, 13)
                 .padding(.vertical, 5)
                 .background(Capsule().fill(fill))
+                .overlay(Capsule().strokeBorder(line, lineWidth: 1))
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -49,7 +59,7 @@ struct OptionRow<Content: View>: View {
     var body: some View {
         HStack(spacing: 12) {
             Text(label)
-                .font(.system(size: 12.5, weight: .bold))
+                .font(.system(size: 12.5, weight: .semibold))
                 .foregroundColor(.secondary)
                 .frame(width: 84, alignment: .leading)
             ScrollView(.horizontal, showsIndicators: false) {
@@ -106,14 +116,7 @@ struct ModeTabs: View {
                 .padding(.top, on ? 11 : 9)
                 .padding(.bottom, 8)
                 .background(TabShape().fill(on ? Color(nsColor: .textBackgroundColor) : Color.secondary.opacity(0.12)))
-                .overlay(TabShape().stroke(Color.secondary.opacity(0.25), lineWidth: 1))
-                .overlay(
-                    VStack(spacing: 0) {
-                        if on { Rectangle().fill(Brand.yellow).frame(height: 3) }
-                        Spacer(minLength: 0)
-                    }
-                    .clipShape(TabShape())
-                )
+                .overlay(TabShape().stroke(on ? Brand.slateLine : Color.secondary.opacity(0.25), lineWidth: 1))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -135,13 +138,8 @@ struct ModeTabs: View {
             ForEach(0..<items.count, id: \.self) { i in
                 tab(items[i].0, items[i].1)
             }
-            Spacer()
-            Text("Click a tab, or press \u{2318}1 to \u{2318}4")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.bottom, 8)
         }
-        .padding(.leading, 14)
+        .frame(maxWidth: .infinity)
         .background(shortcuts)
     }
 }

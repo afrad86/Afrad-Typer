@@ -1,6 +1,6 @@
 {
   "name": "afrad-typer",
-  "version": "1.7.5",
+  "version": "1.7.6",
   "description": "Afrad Typer - typing practice",
   "main": "main.js",
   "author": "Hassan Afrad",
@@ -11,7 +11,7 @@
     "appId": "org.afrad.typer",
     "copyright": "Copyright © 2026 Hassan Afrad. All rights reserved.",
     "productName": "Afrad Typer",
-    "files": ["fonts/*", "index.html", "style.css", "data.js", "core.js", "ui.js", "desktop.js", "main.js", "preload.js", "icon.png", "logo-96.png", "logo-256.png", "package.json"],
+    "files": ["fonts/*", "index.html", "style.css", "data.js", "books.js", "core.js", "ui.js", "desktop.js", "main.js", "preload.js", "icon.png", "logo-96.png", "logo-256.png", "package.json"],
     "win": { "target": "portable", "icon": "icon.png", "artifactName": "Afrad-Typer-Windows.exe" },
     "directories": { "output": "dist" }
   }

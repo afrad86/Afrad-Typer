@@ -13,4 +13,5 @@ final class LibraryUI: ObservableObject {
     @Published var message = ""
     @Published var pasteTitle = ""
     @Published var pasteText = ""
+    @Published var openBook: String? = nil
 }

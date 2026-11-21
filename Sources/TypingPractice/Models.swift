@@ -108,6 +108,7 @@ struct AppSettings: Codable, Equatable {
     var stageSelected: Int = 45
     var stageClearedDay: String = ""
     var textSize: Int = 28
+    var font: String = "mono"
     var stageAccuracyLow: Int = 97
     var stageAccuracyHigh: Int = 96
     var stageAutoMix: Bool = true
@@ -161,6 +162,7 @@ struct AppSettings: Codable, Equatable {
         stageClearedDay = try c.decodeIfPresent(String.self, forKey: .stageClearedDay) ?? ""
         focusMode = try c.decodeIfPresent(Bool.self, forKey: .focusMode) ?? false
         textSize = try c.decodeIfPresent(Int.self, forKey: .textSize) ?? 28
+        font = try c.decodeIfPresent(String.self, forKey: .font) ?? "mono"
         stageAccuracyLow = try c.decodeIfPresent(Int.self, forKey: .stageAccuracyLow) ?? 97
         stageAccuracyHigh = try c.decodeIfPresent(Int.self, forKey: .stageAccuracyHigh) ?? 96
         stageAutoMix = try c.decodeIfPresent(Bool.self, forKey: .stageAutoMix) ?? true

@@ -10,8 +10,10 @@ struct LibraryView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 Text("Library").font(.largeTitle.bold())
-                Text("Add articles to practise on. The app downloads the page, keeps the readable text, and splits it into lessons.")
+                Text("Pick a story to practise, or add your own articles. The app downloads a page, keeps the readable text, and splits it into lessons.")
                     .foregroundStyle(.secondary)
+
+                if !Books.all.isEmpty { storiesSection }
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Add from a web address").font(.headline)
@@ -73,6 +75,60 @@ struct LibraryView: View {
                 }
             }
             .padding(24)
+        }
+    }
+
+    private var storiesSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Stories").font(.headline)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 12)], spacing: 12) {
+                ForEach(Books.all) { b in
+                    let open = ui.openBook == b.id
+                    Button { ui.openBook = open ? nil : b.id } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(b.title).font(.system(size: 14.5, weight: .semibold)).lineLimit(2)
+                            Text(b.author).font(.caption).foregroundColor(.secondary)
+                            HStack(spacing: 8) {
+                                Text(b.level)
+                                    .font(.system(size: 11))
+                                    .padding(.horizontal, 8).padding(.vertical, 1)
+                                    .overlay(Capsule().strokeBorder(Color.secondary.opacity(0.4)))
+                                Text("\(b.parts.count) parts").font(.caption).foregroundColor(.secondary)
+                            }
+                            .padding(.top, 2)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(open ? Brand.slate : Color.secondary.opacity(0.1)))
+                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(open ? Brand.slateLine : Color.secondary.opacity(0.2)))
+                        .contentShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            if let id = ui.openBook, let b = Books.all.first(where: { $0.id == id }) {
+                Text(b.title).font(.callout.weight(.semibold)).foregroundColor(.secondary).padding(.top, 6)
+                VStack(spacing: 0) {
+                    ForEach(0..<b.parts.count, id: \.self) { i in
+                        let pid = Books.uuid(b.id, i)
+                        HStack(spacing: 12) {
+                            Text("\(i + 1)").foregroundColor(.secondary).frame(width: 26, alignment: .leading)
+                            Text(b.parts[i].title).fontWeight(store.data.settings.selectedPassage == pid ? .semibold : .regular)
+                            Spacer()
+                            Text("\(b.parts[i].text.split(separator: " ").count) words").font(.caption).foregroundColor(.secondary)
+                            Button(store.data.settings.selectedPassage == pid ? "Selected" : "Practise") {
+                                store.data.settings.selectedPassage = pid
+                                store.data.settings.mode = .passages
+                                onUse()
+                            }
+                        }
+                        .padding(.vertical, 8)
+                        if i < b.parts.count - 1 { Divider() }
+                    }
+                }
+                .padding(.horizontal, 14).padding(.vertical, 4)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.secondary.opacity(0.08)))
+            }
         }
     }
 

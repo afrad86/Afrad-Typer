@@ -20,7 +20,7 @@ const DEF = {
   mode: 'lessons', source: 'Words', scope: 200, generator: 'Combination', itemsPerLesson: 10, repetition: 5,
   mixedOrder: true, autoFocus: true, customWords: '', capitalPercent: 0, punctuationPercent: 0,
   minWPM: 30, minAccuracy: 95, timedSeconds: 60, wordPool: 1000, wordCount: 30, linesShown: 4,
-  strictMode: false, textSize: 28, hideAhead: 0, sounds: true, focusMode: false, paceWPM: 0,
+  strictMode: false, textSize: 28, font: 'mono', hideAhead: 0, sounds: true, focusMode: false, paceWPM: 0,
   breakReminder: true, selectedPassage: 'starter0', lessonByKey: {},
   stageSelected: 45, stageCleared: 0, stageMinLessons: 30, stageMinWords: 200,
   dailyGoalMinutes: 20, afkSeconds: 3, stageAutoMix: true, stageCapitals: 5, stagePunctuation: 5, warmupEnabled: true, warmupDay: ''
@@ -281,7 +281,9 @@ function nextStage(t) { return TARGETS.find(x => x > t); }
 /* ---------- passages ---------- */
 function allPassages() {
   const base = D.passages.map((p, i) => ({ id: 'starter' + i, title: p.title, text: p.text, builtin: true }));
-  return base.concat(data.passages);
+  const books = [];
+  (window.BOOKS || []).forEach(b => b.parts.forEach((p, i) => books.push({ id: 'book:' + b.id + ':' + i, title: b.title + ' \u2014 ' + p.title, text: p.text, builtin: true, book: b.id })));
+  return base.concat(books, data.passages);
 }
 function chunkPassage(text, target) {
   const words = text.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);

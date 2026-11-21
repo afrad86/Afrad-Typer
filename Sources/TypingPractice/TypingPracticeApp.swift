@@ -13,42 +13,10 @@ struct WindowFitter: NSViewRepresentable {
             let height = min(vf.height * 0.94, 1250)
             let frame = NSRect(x: vf.midX - width / 2, y: vf.midY - height / 2, width: width, height: height)
             w.setFrame(frame, display: true, animate: false)
-            w.isMovableByWindowBackground = true
         }
         return v
     }
     func updateNSView(_ nsView: NSView, context: Context) {}
-}
-
-/// Window title drawn by the app: "Afrad" in the logo's script font, "TOUCH TYPING" in spaced capitals,
-/// orange, centred across the whole window and shrinking with it.
-struct TitleStrip: View {
-    var body: some View {
-        GeometryReader { g in
-            // Everything scales with the window width and stays inside the 44 pt bar.
-            let s = min(24.0, max(14.0, (g.size.width - 200) / 26))
-            let c = s * 0.36
-            ZStack {
-                Text("Afrad")
-                    .font(.custom("Pacifico-Regular", size: s))
-                    .foregroundColor(Brand.orange)
-                    .offset(y: -s * 0.22)
-                // small capitals under the word; the tail of the f dips into the gap between the two words
-                HStack(spacing: c * 1.9) {
-                    Text("TOUCH").tracking(c * 0.55)
-                    Text("TYPING").tracking(c * 0.55)
-                }
-                .font(.system(size: c, weight: .bold))
-                .foregroundColor(Brand.orange)
-                .fixedSize()
-                .offset(y: s * 0.62)
-            }
-            .frame(width: g.size.width, height: g.size.height)
-        }
-        .frame(height: 44)
-        .clipped()
-        .background(Color(NSColor.windowBackgroundColor))
-    }
 }
 
 @main
@@ -66,11 +34,8 @@ struct TypingPracticeApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("Afrad Typer") {
-            VStack(spacing: 0) {
-                TitleStrip()
-                RootView()
-            }
+        WindowGroup("Afrad Touch Typing") {
+            RootView()
                 .environmentObject(session)
                 .frame(minWidth: TypingPracticeApp.minWidth, minHeight: 480)
                 .background(WindowFitter())
@@ -78,7 +43,6 @@ struct TypingPracticeApp: App {
                 .sheet(isPresented: $welcome.show) { WelcomeView(onClose: { welcome.show = false }) }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in Updater.peek() }
         }
-        .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(replacing: .help) {
                 Button("Getting started") { welcome.show = true }

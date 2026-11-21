@@ -4,6 +4,8 @@
 let tab = 'today';
 let T = null;            // current session
 let timerId = null;
+let fontOpen = false;     // font menu open
+let libBook = null;       // book open in the Library
 let optsOpen = false;    // settings / options shown (a pop-up in Focus mode)
 let sitting = { wpms: [], typingSecs: 0, lastBreak: 0 };
 let lastPaceIdx = -1;
@@ -12,6 +14,8 @@ const TABS = [['today', 'Daily Practice'], ['practice', 'Practice'], ['advanced'
 
 /* ---------- sounds ---------- */
 let actx = null;
+const FONTS = [['mono', 'Monospace', "ui-monospace,Menlo,Consolas,'DejaVu Sans Mono',monospace", 'default'], ['sans', 'Sans-serif', "'Segoe UI',system-ui,-apple-system,sans-serif", ''], ['serif', 'Serif', "Georgia,'Times New Roman',serif", ''], ['type', 'Typewriter', "'Courier New',Courier,monospace", ''], ['comf', 'Comfortable', "Verdana,Geneva,sans-serif", 'easy to read']];
+const fontOf = k => FONTS.find(f => f[0] === k) || FONTS[0];
 function beep(freq, dur, vol) {
   if (!S_().sounds) return;
   try {
@@ -492,6 +496,7 @@ function renderPractice() {
     '<span class="lesson">' + esc(T.label) + '</span><span class="sp"></span>' +
     '<button class="small' + (s.sounds ? ' on' : '') + '" data-act="sounds">Sounds</button>' +
     '<button class="small" data-act="smaller">A−</button><button class="small" data-act="bigger">A+</button>' +
+    '<span class="fwrap"><button class="small" data-act="fontmenu">Font: ' + fontOf(s.font)[1] + ' \u25be</button>' + (fontOpen ? '<div class="fmenu">' + FONTS.map(f => '<button class="fi' + (f[0] === (s.font || 'mono') ? ' on' : '') + '" data-font="' + f[0] + '" style="font-family:' + f[2] + '"><span>' + f[1] + '</span><small>' + f[3] + '</small></button>').join('') + '</div>' : '') + '</span>' +
     '<button class="small' + (optsOpen ? ' on' : '') + '" data-act="opts">Settings</button>' +
     '<button class="small' + (focus ? ' on' : '') + '" data-act="focus">Focus</button>';
   // sheet tabs on top of the typing area
@@ -534,7 +539,7 @@ function modePanelHtml(s, mode) {
   if (mode === 'timed') return '<div class="panel hz">' + orow('Duration', chips('timedSeconds', [15, 30, 60, 120, 180], s.timedSeconds, true, v => v + ' s')) + pool + '</div>';
   if (mode === 'symbols') return '<div class="panel hz">' + pool + orow('Length', chips('wordCount', [15, 20, 30, 40, 60], s.wordCount, true, v => v + ' words')) + '</div>';
   const list = allPassages();
-  return '<div class="panel hz">' + orow('Passage', '<select data-input="selectedPassage">' + list.map(p => '<option value="' + esc(p.id) + '"' + (p.id === s.selectedPassage ? ' selected' : '') + '>' + esc(p.title) + '</option>').join('') + '</select>') +
+  return '<div class="panel hz">' + orow('Passage', '<select data-input="selectedPassage">' + passageOptions(list, s.selectedPassage) + '</select>') +
     orow('Threshold', numIn('WPM', 'minWPM', 5, 200, s.minWPM, 5) + numIn('Accuracy %', 'minAccuracy', 50, 100, s.minAccuracy)) + '</div>';
 }
 function settingsHtml(s) {
@@ -574,6 +579,7 @@ function renderTyping() {
   $('#info').textContent = T.info; $('#info').hidden = !T.info;
   const box = $('#box'), inner = $('#inner');
   const fs = Math.min(s.textSize, Math.max(16, box.clientWidth / 24));
+  inner.style.fontFamily = fontOf(s.font)[2];
   inner.style.fontSize = fs + 'px'; inner.style.lineHeight = Math.round(fs * 1.7) + 'px';
   box.style.height = Math.round(fs * 1.7 * s.linesShown + 24) + 'px';
   inner.style.transform = 'translateY(0)';
@@ -681,11 +687,26 @@ function renderWeak(p) {
   const tbl = (title, rows, up) => '<h3>' + title + '</h3>' + (rows.length ? '<table class="tbl"><tr><th>Item</th><th>Presses</th><th>Missed</th><th>Avg speed</th></tr>' + rows.map(([k, v]) => '<tr><td><b>' + esc(up ? k.toUpperCase() : k) + '</b></td><td>' + v.attempts + '</td><td>' + (missRate(v) * 100).toFixed(1) + '%</td><td>' + Math.round(avgMs(v)) + ' ms</td></tr>').join('') + '</table>' : '<p class="muted">Not enough data yet.</p>');
   p.innerHTML = '<h2>Weak spots</h2><p class="muted">A report from your last ' + n + ' sessions. The app already adds extra practice for these inside your lessons automatically — nothing to set up.</p>' + tbl('Weak keys', rowsK, true) + tbl('Slow letter pairs', rowsP, true) + tbl('Slow words', rowsW, false);
 }
+function passageOptions(list, sel) {
+  const opt = p => '<option value="' + esc(p.id) + '"' + (p.id === sel ? ' selected' : '') + '>' + esc(p.title) + '</option>';
+  let h = list.filter(p => !p.book).map(opt).join('');
+  (window.BOOKS || []).forEach(bk => { h += '<optgroup label="' + esc(bk.title) + '">' + list.filter(p => p.book === bk.id).map(p => '<option value="' + esc(p.id) + '"' + (p.id === sel ? ' selected' : '') + '>' + esc(p.title.split(' \u2014 ').slice(1).join(' \u2014 ')) + '</option>').join('') + '</optgroup>'; });
+  return h;
+}
 function renderLibrary(p) {
-  const list = allPassages(), s = S_();
-  p.innerHTML = '<h2>Library</h2><p class="muted">Pick a passage to practise in the Passages mode, or add your own text.</p>' +
-    list.map(x => '<div class="lib' + (x.id === s.selectedPassage ? ' on' : '') + '"><div><b>' + esc(x.title) + '</b><div class="muted">' + esc(x.text.slice(0, 140)) + '…</div></div><div><button data-lib="use" data-id="' + x.id + '">' + (x.id === s.selectedPassage ? 'Selected' : 'Use') + '</button>' + (x.builtin ? '' : ' <button class="danger" data-lib="del" data-id="' + x.id + '">Delete</button>') + '</div></div>').join('') +
+  const list = allPassages(), s = S_(), books = window.BOOKS || [];
+  const words = t => t.split(/\s+/).filter(Boolean).length;
+  const row = x => '<div class="lib' + (x.id === s.selectedPassage ? ' on' : '') + '"><div><b>' + esc(x.title) + '</b><div class="muted">' + esc(x.text.slice(0, 140)) + '\u2026</div></div><div><button data-lib="use" data-id="' + x.id + '">' + (x.id === s.selectedPassage ? 'Selected' : 'Use') + '</button>' + (x.builtin ? '' : ' <button class="danger" data-lib="del" data-id="' + x.id + '">Delete</button>') + '</div></div>';
+  let h = '<h2>Library</h2><p class="muted">Pick a story or passage to practise in the Passages mode, or add your own text.</p>';
+  if (books.length) {
+    h += '<div class="sec">Stories</div><div class="shelf">' + books.map(b => '<div class="book' + (libBook === b.id ? ' open' : '') + '" data-book="' + b.id + '"><b>' + esc(b.title) + '</b><span class="au">' + esc(b.author) + '</span><div class="meta"><span class="lvl">' + esc(b.level) + '</span><span>' + b.parts.length + ' parts</span></div></div>').join('') + '</div>';
+    const ob = books.find(b => b.id === libBook);
+    if (ob) h += '<div class="sec">' + esc(ob.title) + '</div><div class="parts">' + ob.parts.map((q, i) => { const id = 'book:' + ob.id + ':' + i; return '<div class="part' + (id === s.selectedPassage ? ' sel' : '') + '"><span class="n">' + (i + 1) + '</span><span class="tt">' + esc(q.title) + '</span><span class="w">' + words(q.text) + ' words</span><button data-lib="use" data-id="' + id + '">' + (id === s.selectedPassage ? 'Selected' : 'Use') + '</button></div>'; }).join('') + '</div>';
+  }
+  const mine = list.filter(x => !x.book);
+  h += '<div class="sec">Passages</div>' + mine.map(row).join('') +
     '<h3>Add a passage</h3><input id="ptitle" placeholder="Title" class="wide"><textarea id="ptext" rows="6" class="wide" placeholder="Paste or type the text you want to practise"></textarea><button class="primary" id="padd">Add passage</button>';
+  p.innerHTML = h;
 }
 
 /* ---------- events ---------- */
@@ -697,6 +718,9 @@ function applyInput(key, val) {
 document.addEventListener('click', e => {
   const t = e.target;
   let b;
+  if (fontOpen && !t.closest('.fwrap')) { fontOpen = false; renderAll(); }
+  if ((b = t.closest('[data-font]'))) { S_().font = b.dataset.font; fontOpen = false; save(); renderAll(); return; }
+  if ((b = t.closest('[data-book]'))) { libBook = libBook === b.dataset.book ? null : b.dataset.book; renderAll(); return; }
   if ((b = t.closest('[data-tab]'))) { tab = b.dataset.tab; optsOpen = false; if (tab === 'practice' || tab === 'advanced') newSession(); else renderAll(); return; }
   if ((b = t.closest('[data-help]'))) { guideOpen = b.dataset.help; tab = 'guide'; renderAll(); return; }
   if ((b = t.closest('[data-go]'))) { S_().mode = b.dataset.go; save(); tab = 'practice'; newSession(); return; }
@@ -707,6 +731,7 @@ document.addEventListener('click', e => {
     else if (a === 'sounds') { s.sounds = !s.sounds; save(); renderAll(); }
     else if (a === 'smaller') { s.textSize = Math.max(16, s.textSize - 2); save(); renderAll(); }
     else if (a === 'bigger') { s.textSize = Math.min(60, s.textSize + 2); save(); renderAll(); }
+    else if (a === 'fontmenu') { fontOpen = !fontOpen; renderAll(); }
     else if (a === 'opts') { optsOpen = !optsOpen; renderAll(); }
     else if (a === 'focus') { s.focusMode = !s.focusMode; optsOpen = false; save(); renderAll(); }
     else if (a === 'next') proceed();

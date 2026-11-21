@@ -412,7 +412,7 @@ final class PracticeController: ObservableObject {
             detailText = "\(s.timedSeconds) s test"
 
         case .passages:
-            let list = store.data.passages
+            let list = store.allPassages
             if let p = list.first(where: { $0.id == s.selectedPassage }) ?? list.first {
                 let chunks = PassageChunker.chunks(p.text, target: max(120, s.wordCount * 6))
                 if chunks.isEmpty {

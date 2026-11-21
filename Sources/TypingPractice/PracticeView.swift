@@ -142,6 +142,7 @@ struct PracticeView: View {
             if !c.focusMode {
                 Toggle("Sounds", isOn: $store.data.settings.sounds)
                     .toggleStyle(.switch)
+                    .accentColor(Brand.slateLine)
             }
             if c.focusMode {
                 Picker("Words ahead", selection: $store.data.settings.hideAhead) {
@@ -160,6 +161,20 @@ struct PracticeView: View {
                 Button { store.data.settings.textSize = min(64, settings.textSize + 2) } label: { Text("A+") }
                     .keyboardShortcut("=", modifiers: .command)
                     .help("Bigger text (Cmd +)")
+                Menu {
+                    ForEach(TypingFont.all, id: \.key) { f in
+                        Button {
+                            store.data.settings.font = f.key
+                        } label: {
+                            Text(f.name + (f.hint.isEmpty ? "" : "  (\(f.hint))") + (settings.font == f.key ? "  \u{2713}" : ""))
+                        }
+                    }
+                } label: {
+                    Text("Font: \(TypingFont.name(settings.font))")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Choose the font of the typing text")
             }
             Button {
                 if c.focusMode { c.showOptions.toggle() } else { c.settingsOpen.toggle() }
@@ -443,7 +458,7 @@ struct PracticeView: View {
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.08)))
-        .accentColor(Brand.orange)
+        .accentColor(Brand.slateLine)
     }
 
     private var passageOptions: some View {
@@ -451,6 +466,13 @@ struct PracticeView: View {
             Picker("Passage", selection: passageBinding) {
                 ForEach(store.data.passages) { p in
                     Text(p.title).tag(p.id)
+                }
+                ForEach(Books.all) { b in
+                    Section(b.title) {
+                        ForEach(0..<b.parts.count, id: \.self) { i in
+                            Text(b.parts[i].title).tag(Books.uuid(b.id, i))
+                        }
+                    }
                 }
             }
             .frame(maxWidth: 420)
@@ -462,7 +484,7 @@ struct PracticeView: View {
     private var passageBinding: Binding<UUID> {
         Binding<UUID>(
             get: {
-                store.data.settings.selectedPassage ?? store.data.passages.first?.id ?? UUID()
+                store.data.settings.selectedPassage ?? store.allPassages.first?.id ?? UUID()
             },
             set: { store.data.settings.selectedPassage = $0 }
         )
@@ -513,7 +535,7 @@ struct PracticeView: View {
     /// Works out how many monospaced characters fit across the box and tells the controller.
     private func fitLines(width: CGFloat) {
         let usable = width - 56
-        let charWidth = CGFloat(settings.textSize) * 0.61
+        let charWidth = CGFloat(settings.textSize) * TypingFont.charWidth(settings.font)
         let n = Int(usable / max(charWidth, 1))
         DispatchQueue.main.async { c.setLineChars(n) }
     }
@@ -527,7 +549,7 @@ struct PracticeView: View {
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(c.visibleLines, id: \.self) { r in
                     Text(c.attributed(r))
-                        .font(.system(size: CGFloat(settings.textSize), design: .monospaced))
+                        .font(TypingFont.font(settings.font, size: CGFloat(settings.textSize)))
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
                 }
@@ -566,6 +588,7 @@ struct PracticeView: View {
                     .onAppear { fitLines(width: geo.size.width) }
                     .onChange(of: geo.size.width) { w in fitLines(width: w) }
                     .onChange(of: settings.textSize) { _ in fitLines(width: geo.size.width) }
+                    .onChange(of: settings.font) { _ in fitLines(width: geo.size.width) }
             }
         )
         .contentShape(Rectangle())
