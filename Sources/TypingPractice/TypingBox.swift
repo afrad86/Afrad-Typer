@@ -11,12 +11,11 @@ struct TypingBox: View {
 
     // MARK: Typing area
 
-    /// Works out how many monospaced characters fit across the box and tells the controller.
+    /// Tells the controller the real width, font and size so lines can be filled by measuring the letters.
     private func fitLines(width: CGFloat) {
-        let usable = width - 56
-        let charWidth = CGFloat(settings.textSize) * TypingFont.charWidth(settings.font)
-        let n = Int(usable / max(charWidth, 1))
-        DispatchQueue.main.async { c.setLineChars(n) }
+        let usable = width - 56 - 6   // padding on both sides, plus a little slack so a line never has to shrink
+        let font = settings.font, size = CGFloat(settings.textSize)
+        DispatchQueue.main.async { c.setLayout(width: usable, font: font, size: size) }
     }
 
     var body: some View {

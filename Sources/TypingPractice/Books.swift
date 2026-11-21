@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import AppKit
 import CryptoKit
 
 struct BookPart: Codable {
@@ -73,6 +74,19 @@ enum TypingFont {
         case "type": return .custom("Courier New", size: size)
         case "comf": return .custom("Verdana", size: size)
         default: return .system(size: size, design: .monospaced)
+        }
+    }
+    /// The real AppKit font, used to measure how wide each letter is.
+    static func nsFont(_ key: String, size: CGFloat) -> NSFont {
+        switch key {
+        case "sans": return NSFont.systemFont(ofSize: size)
+        case "serif":
+            let base = NSFont.systemFont(ofSize: size)
+            if let d = base.fontDescriptor.withDesign(.serif), let f = NSFont(descriptor: d, size: size) { return f }
+            return base
+        case "type": return NSFont(name: "Courier New", size: size) ?? NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
+        case "comf": return NSFont(name: "Verdana", size: size) ?? NSFont.systemFont(ofSize: size)
+        default: return NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
         }
     }
     /// A safe average character width (as a share of the font size) for fitting lines.

@@ -539,12 +539,36 @@ final class PracticeController: ObservableObject {
         setTarget(text)
     }
 
-    /// Called by the view with how many characters fit across the typing area, so lines fill the width.
-    func setLineChars(_ n: Int) {
-        let v = max(24, min(220, n))
-        guard v != lineChars else { return }
-        lineChars = v
-        lines = PracticeController.wrapLines(target, maxLen: max(20, v - 1))
+    /// Called by the view with the real width of the typing area, the font and its size. Lines are filled by measuring
+    /// each letter in that font, so proportional fonts reach the right edge just like the monospaced one.
+    func setLayout(width: CGFloat, font: String, size: CGFloat) {
+        let w = max(120, width)
+        guard w != lineWidth || font != lineFont || size != lineSize else { return }
+        lineWidth = w; lineFont = font; lineSize = size
+        widthCache = [:]
+        nsFont = TypingFont.nsFont(font, size: size)
+        lines = PracticeController.wrapMeasured(target, width: w, measure: { [unowned self] in self.glyphWidth($0) })
+        live.n &+= 1   // redraw the typing box with the new line breaks
+    }
+
+    private var lineWidth: CGFloat = 0
+    private var lineFont = "mono"
+    private var lineSize: CGFloat = 0
+    private var nsFont: NSFont = NSFont.monospacedSystemFont(ofSize: 20, weight: .regular)
+    private var widthCache: [Character: CGFloat] = [:]
+
+    private func glyphWidth(_ ch: Character) -> CGFloat {
+        if let w = widthCache[ch] { return w }
+        let w = (String(ch) as NSString).size(withAttributes: [.font: nsFont]).width
+        widthCache[ch] = w
+        return w
+    }
+
+    private func rewrap(_ chars: [Character]) -> [Range<Int>] {
+        if lineWidth > 0 {
+            return PracticeController.wrapMeasured(chars, width: lineWidth, measure: { [unowned self] in self.glyphWidth($0) })
+        }
+        return PracticeController.wrapLines(chars, maxLen: max(20, lineChars - 1))
     }
 
     private func setTarget(_ text: String) {
@@ -561,7 +585,7 @@ final class PracticeController: ObservableObject {
         }
         boostMask = mask
         pendingBoostFlags = nil
-        lines = PracticeController.wrapLines(chars, maxLen: max(20, lineChars - 1))
+        lines = rewrap(chars)
 
         var ranges: [Range<Int>] = []
         var idxAt = Array(repeating: -1, count: chars.count)
@@ -578,6 +602,38 @@ final class PracticeController: ObservableObject {
         }
         wordRanges = ranges
         wordIndexAt = idxAt
+    }
+
+    /// Breaks text into lines no wider than `width` points (measured letter by letter), at spaces where possible.
+    /// A trailing space may hang past the edge, so it never pushes a word onto the next line.
+    static func wrapMeasured(_ chars: [Character], width: CGFloat, measure: (Character) -> CGFloat) -> [Range<Int>] {
+        var out: [Range<Int>] = []
+        var start = 0
+        var lastSpace = -1
+        var x: CGFloat = 0
+        var i = 0
+        while i < chars.count {
+            let ch = chars[i]
+            let cw = measure(ch)
+            if ch == " " { lastSpace = i }
+            else if x + cw > width && i > start {
+                if lastSpace >= start {
+                    out.append(start..<(lastSpace + 1))
+                    start = lastSpace + 1
+                    lastSpace = -1
+                } else {
+                    out.append(start..<i)
+                    start = i
+                }
+                x = 0
+                var k = start
+                while k < i { x += measure(chars[k]); k += 1 }
+            }
+            x += cw
+            i += 1
+        }
+        if start < chars.count { out.append(start..<chars.count) }
+        return out
     }
 
     static func wrapLines(_ chars: [Character], maxLen: Int = 56) -> [Range<Int>] {
