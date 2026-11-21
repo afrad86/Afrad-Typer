@@ -52,7 +52,7 @@ struct ContentView: View {
                         .padding(.top, 14)
                         .padding(.bottom, 8)
                     VStack(spacing: 2) {
-                        ForEach(AppTab.allCases) { t in
+                        ForEach(AppTab.allCases.filter { $0 != .guide }) { t in
                             let on = (tabBox.value ?? .practice) == t
                             Button(action: { tabBox.value = t }) {
                                 HStack(spacing: 8) {

@@ -8,7 +8,7 @@ let optsOpen = false;    // settings / options shown (a pop-up in Focus mode)
 let sitting = { wpms: [], typingSecs: 0, lastBreak: 0 };
 let lastPaceIdx = -1;
 
-const TABS = [['today', 'Daily Practice'], ['practice', 'Practice'], ['advanced', 'Advanced'], ['progress', 'Progress'], ['weak', 'Weak Spots'], ['library', 'Library'], ['guide', 'How it works']];
+const TABS = [['today', 'Daily Practice'], ['practice', 'Practice'], ['advanced', 'Advanced'], ['progress', 'Progress'], ['weak', 'Weak Spots'], ['library', 'Library']];
 
 /* ---------- sounds ---------- */
 let actx = null;
