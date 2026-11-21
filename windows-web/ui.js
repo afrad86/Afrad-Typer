@@ -252,7 +252,7 @@ function applyHide() {
   const n = S_().hideAhead, spans = $('#inner').children;
   const prev = T.hidSpans || [];
   const now = [];
-  if (n > 0 && T.mode !== 'stages') {
+  if (n > 0) {
     const cw = T.wordAt[Math.min(T.pos, T.chars.length - 1)];
     if (cw >= 0) for (let w = cw + 1; w <= cw + n && w < T.words.length; w++) for (let i = T.words[w][0]; i < T.words[w][1]; i++) now.push(i);
   }

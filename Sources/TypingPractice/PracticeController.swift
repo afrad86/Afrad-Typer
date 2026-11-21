@@ -176,7 +176,7 @@ final class PracticeController: ObservableObject {
     /// Words hidden from view as a speed exercise: the next one or two words after the one you are typing.
     private func hiddenWords() -> ClosedRange<Int>? {
         let n = store.data.settings.hideAhead
-        guard n > 0, currentMode != .stages, !wordRanges.isEmpty, result == nil else { return nil }
+        guard n > 0, !wordRanges.isEmpty, result == nil else { return nil }
         var cur = pos < wordIndexAt.count ? wordIndexAt[pos] : -1
         if cur < 0 { cur = wordRanges.firstIndex(where: { $0.lowerBound > pos }) ?? wordRanges.count }
         return (cur + 1)...(cur + n)
