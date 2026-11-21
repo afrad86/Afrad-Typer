@@ -44,6 +44,9 @@ struct TypingPracticeApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in Updater.peek() }
         }
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button(updates.latest.map { "Update available v\($0)\u{2026}" } ?? "Check for Updates\u{2026}") { Updater.check() }
+            }
             CommandGroup(replacing: .help) {
                 Button("Getting started") { welcome.show = true }
                 Button("How it works") { NotificationCenter.default.post(name: .openGuide, object: nil) }

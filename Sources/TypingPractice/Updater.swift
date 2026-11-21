@@ -9,6 +9,7 @@ final class UpdateState: ObservableObject {
     static let shared = UpdateState()
     @Published var latest: String? = nil
     var lastPeek = Date.distantPast
+    var offered: String? = nil
 }
 
 /// "Check for Updates": reads release/version.json from the project's GitHub page, and if a newer version exists,
@@ -41,7 +42,32 @@ enum Updater {
         return a.runModal() == .alertFirstButtonReturn
     }
 
-    /// Quiet check (no pop-ups): on launch and when the app comes back to the front, at most every 30 minutes.
+    /// Writes what the updater did to the system log and to update.log in the app's data folder, so a silent failure can be read afterwards.
+    static func log(_ text: String) {
+        NSLog("[Updater] %@", text)
+        let fm = FileManager.default
+        guard let dir = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("Afrad Typer") else { return }
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        let file = dir.appendingPathComponent("update.log")
+        let line = "\(ISO8601DateFormatter().string(from: Date())) v\(current) \(text)\n"
+        if let h = try? FileHandle(forWritingTo: file) {
+            h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close()
+        } else {
+            try? line.write(to: file, atomically: true, encoding: .utf8)
+        }
+    }
+
+    /// Asks whether to install `latest` now, and installs it if the answer is yes.
+    private static func offer(_ latest: String, _ obj: [String: Any]) {
+        let go = alert("Update available: \(latest)",
+                       "You have \(current). The app will download the update, replace itself and reopen. Your progress is kept.",
+                       buttons: ["Install and Restart", "Later"])
+        if !go { busy = false; return }
+        busy = true
+        install(from: (obj["mac"] as? String) ?? (base + "Afrad-Typer.zip"))
+    }
+
+    /// Quiet check (no pop-ups unless a newer version exists): on launch and when the app comes back to the front, at most every 30 minutes.
     static func peek() {
         let st = UpdateState.shared
         if Date().timeIntervalSince(st.lastPeek) < 1800 { return }
@@ -50,12 +76,22 @@ enum Updater {
         var req = URLRequest(url: url)
         req.cachePolicy = .reloadIgnoringLocalCacheData
         req.timeoutInterval = 15
-        URLSession.shared.dataTask(with: req) { data, _, _ in
+        URLSession.shared.dataTask(with: req) { data, resp, err in
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             guard let data = data,
                   let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let latest = obj["version"] as? String else { return }
+                  let latest = obj["version"] as? String else {
+                log("quiet check failed: status \(code), error \(err?.localizedDescription ?? "none")")
+                return
+            }
+            log("quiet check ok: latest \(latest)")
             DispatchQueue.main.async {
                 st.latest = isNewer(latest, current) ? latest : nil
+                if isNewer(latest, current), st.offered != latest, !busy {
+                    st.offered = latest
+                    busy = true
+                    offer(latest, obj)
+                }
             }
         }.resume()
     }
@@ -65,33 +101,32 @@ enum Updater {
     }
 
     static func check() {
-        if busy { return }
+        log(busy ? "manual check ignored: another check is running" : "manual check started")
+        if busy { _ = alert("Please wait", "An update check is already running."); return }
         busy = true
         guard let url = URL(string: base + "version.json?t=\(Int(Date().timeIntervalSince1970))") else { busy = false; return }
         var req = URLRequest(url: url)
         req.cachePolicy = .reloadIgnoringLocalCacheData
         req.timeoutInterval = 20
-        URLSession.shared.dataTask(with: req) { data, _, _ in
+        URLSession.shared.dataTask(with: req) { data, resp, err in
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             DispatchQueue.main.async {
                 guard let data = data,
                       let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                       let latest = obj["version"] as? String else {
                     busy = false
-                    _ = alert("Could not check for updates", "Check your internet connection and try again.")
+                    log("manual check failed: status \(code), error \(err?.localizedDescription ?? "none")")
+                    _ = alert("Could not check for updates", "Check your internet connection and try again.\n\n(Details: status \(code) \(err?.localizedDescription ?? ""))")
                     return
                 }
+                log("manual check ok: latest \(latest)")
                 UpdateState.shared.latest = isNewer(latest, current) ? latest : nil
                 if !isNewer(latest, current) {
                     busy = false
                     _ = alert("You're up to date", "Afrad Touch Typing \(current) is the latest version.")
                     return
                 }
-                let go = alert("Update available: \(latest)",
-                               "You have \(current). The app will download the update, replace itself and reopen. Your progress is kept.",
-                               buttons: ["Install and Restart", "Later"])
-                if !go { busy = false; return }
-                let file = (obj["mac"] as? String) ?? (base + "Afrad-Typer.zip")
-                install(from: file)
+                offer(latest, obj)
             }
         }.resume()
     }
