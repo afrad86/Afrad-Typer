@@ -49,7 +49,12 @@ struct StagesView: View {
 
                 HStack(spacing: 24) {
                     Stepper("Lessons needed per stage: \(settings.stageMinLessons)", value: $store.data.settings.stageMinLessons, in: 1...200, step: 5)
-                    Stepper("Words per lesson: \(settings.stageMinWords)", value: $store.data.settings.stageMinWords, in: 50...1000, step: 50)
+                    HStack(spacing: 8) {
+                        Text("Lesson length")
+                        ForEach([50, 100, 200], id: \.self) { n in
+                            OptionChip(title: "\(n) words", selected: settings.stageMinWords == n) { store.data.settings.stageMinWords = n }
+                        }
+                    }
                 }
 
                 HStack(spacing: 24) {

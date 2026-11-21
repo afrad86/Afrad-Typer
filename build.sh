@@ -57,6 +57,7 @@ cp "$OUT/$EXE" "$BUNDLE.app/Contents/MacOS/$EXE"
 cp Resources/Info.plist "$BUNDLE.app/Contents/Info.plist"
 VERSION="$(tr -d '[:space:]' < VERSION)"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$BUNDLE.app/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$BUNDLE.app/Contents/Info.plist"
 if [ -f Resources/Logo.png ]; then
   cp Resources/Logo.png "$BUNDLE.app/Contents/Resources/Logo.png"
 fi

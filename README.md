@@ -20,7 +20,7 @@
 ## What it does
 - Lessons from words, common words, trigrams, tetragrams or your own list, with automatic weak-key, slow-pair and slow-word practice mixed in.
 - Timed tests, passages, numbers and symbols.
-- An optional Advanced ladder from 45 to 110 WPM. Each stage lesson is 200 words. Finish 30 lessons, with at least 90% of your latest 30 reaching the stage speed and accuracy (97% up to 85 WPM, 96% from 86 WPM), to unlock the next stage.
+- An optional Advanced ladder from 45 to 110 WPM. Each stage lesson is 100 words by default (you can choose 50, 100 or 200). Finish 30 lessons, with at least 90% of your latest 30 reaching the stage speed and accuracy (97% up to 85 WPM, 96% from 86 WPM), to unlock the next stage.
 - Separate users, each with their own progress, an optional picture and an optional password.
 - Progress charts, a weak-spot report, a passage library and a Focus mode.
 

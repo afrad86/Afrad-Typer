@@ -587,7 +587,7 @@ function advancedPanelHtml(s) {
   let h = '<div class="panel"><h4>Advanced stage ladder</h4><p class="muted">Each lesson is ' + s.stageMinWords + ' words. Clear a stage when at least 90% of your latest ' + s.stageMinLessons + ' lessons reach the stage speed with accuracy ' + 97 + '% (up to 85 WPM) or ' + 96 + '% (from 86 WPM). Only lessons typed here count. The first lesson each day is a slow warm-up that does not count.</p>';
   h += '<div class="grid"><div>My current stage <select data-input="stageSelected" data-num="1">' + TARGETS.map(t => '<option value="' + t + '"' + (t === cur ? ' selected' : '') + '>' + t + ' WPM' + (t <= s.stageCleared ? ' ✓' : '') + '</option>').join('') + '</select></div>' +
     '<div>Lessons needed <input type="number" class="num" data-input="stageMinLessons" min="5" max="100" value="' + s.stageMinLessons + '"></div>' +
-    '<div>Words per lesson <input type="number" class="num" data-input="stageMinWords" min="50" max="500" step="10" value="' + s.stageMinWords + '"></div>' +
+    '<div>Lesson length ' + chips('stageMinWords', [50, 100, 200], s.stageMinWords, true, v => v + ' words') + '</div>' +
     '<div>' + toggle('stageAutoMix', s.stageAutoMix, 'Capitals & punctuation ramp up automatically (now ' + mix.caps + '% / ' + mix.punct + '%)') + '</div>' +
     (s.stageAutoMix ? '' : '<div>Capitals <input type="range" min="0" max="30" data-input="stageCapitals" value="' + s.stageCapitals + '"> <b>' + s.stageCapitals + '%</b></div><div>Punctuation <input type="range" min="0" max="30" data-input="stagePunctuation" value="' + s.stagePunctuation + '"> <b>' + s.stagePunctuation + '%</b></div>') +
     '<div>' + toggle('warmupEnabled', s.warmupEnabled, 'Daily slow warm-up') + '</div></div>';

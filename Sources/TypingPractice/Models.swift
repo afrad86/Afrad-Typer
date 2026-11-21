@@ -122,7 +122,7 @@ struct AppSettings: Codable, Equatable {
     /// Seconds without a key before the clock stops (0 = never).
     var afkSeconds: Int = 3
     var stageMinLessons: Int = 30
-    var stageMinWords: Int = 200
+    var stageMinWords: Int = 100
     var stageLadderVersion: Int = 3
     var focusMode: Bool = false
     /// Remembered level (index) so the tag has a small buffer and does not flicker.
@@ -179,7 +179,7 @@ struct AppSettings: Codable, Equatable {
         stageMinLessons = try c.decodeIfPresent(Int.self, forKey: .stageMinLessons) ?? 30
         levelTier = try c.decodeIfPresent(Int.self, forKey: .levelTier)
         levelTierPlain = try c.decodeIfPresent(Int.self, forKey: .levelTierPlain)
-        stageMinWords = try c.decodeIfPresent(Int.self, forKey: .stageMinWords) ?? 200
+        stageMinWords = try c.decodeIfPresent(Int.self, forKey: .stageMinWords) ?? 100
         let ver = try c.decodeIfPresent(Int.self, forKey: .stageLadderVersion) ?? 1
         if ver < 2 {
             // The ladder changed (now 45 to 110 WPM), so progress starts again from the bottom.
@@ -241,7 +241,7 @@ struct StoreData: Codable {
 }
 
 /// The strict stage ladder: steps of 5 WPM up to 80, then steps of 3 up to 110.
-/// Each stage lesson is 200 words (adjustable). To unlock the next stage you must finish at least
+/// Each stage lesson is 100 words by default (50, 100 or 200). To unlock the next stage you must finish at least
 /// 30 lessons at the stage, and in your latest 30 lessons at least 90% must reach the stage speed with
 /// the required accuracy (97% up to 85 WPM, 96% from 86 WPM by default). It can take as many days as you need.
 enum StageRules {
