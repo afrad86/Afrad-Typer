@@ -73,11 +73,24 @@ function fetchTo(url, dest, hops) {
     }).on('error', reject).setTimeout(30000, function () { this.destroy(new Error('timeout')); });
   });
 }
+let pendingVersion = null, lastPeek = 0, menuWin = null;
+/* Quiet check on start and when the window is focused again (at most every 30 minutes): relabels the Help item. */
+async function peekUpdate(win) {
+  if (Date.now() - lastPeek < 30 * 60 * 1000) return;
+  lastPeek = Date.now();
+  try {
+    const info = JSON.parse(await fetchTo(BASE + 'version.json?t=' + Date.now()));
+    const p = info.version && newer(info.version, app.getVersion()) ? info.version : null;
+    if (p !== pendingVersion) { pendingVersion = p; buildMenu(win); }
+  } catch (e) { /* offline: keep the plain label */ }
+}
 async function checkUpdates(win) {
   const box = o => dialog.showMessageBox(win, Object.assign({ type: 'info', buttons: ['OK'] }, o));
   let info;
   try { info = JSON.parse(await fetchTo(BASE + 'version.json?t=' + Date.now())); } catch (e) { return box({ message: 'Could not check for updates', detail: 'Check your internet connection and try again.' }); }
   const cur = app.getVersion();
+  const np = info.version && newer(info.version, cur) ? info.version : null;
+  if (np !== pendingVersion) { pendingVersion = np; buildMenu(win); }
   if (!info.version || !newer(info.version, cur)) return box({ message: "You're up to date", detail: 'Afrad Typer ' + cur + ' is the latest version.' });
   const r = await box({ type: 'question', buttons: ['Install and restart', 'Later'], defaultId: 0, cancelId: 1, message: 'Update available: ' + info.version, detail: 'You have ' + cur + '. The app will download the update, replace itself and reopen. Your progress is kept.' });
   if (r.response !== 0) return;
@@ -100,7 +113,7 @@ function buildMenu(win) {
     { label: 'Help', submenu: [
       { label: 'How it works', click: () => win.webContents.send('open-guide') },
       { type: 'separator' },
-      { label: 'Check for updates…', click: () => checkUpdates(win) },
+      { label: pendingVersion ? 'Update available v' + pendingVersion + '…' : 'Check for updates…', click: () => checkUpdates(win) },
       { label: 'About Afrad Typer', click: () => dialog.showMessageBox(win, { type: 'info', message: 'Afrad Typer', detail: 'Version ' + app.getVersion() + '\nCopyright © 2026 Hassan Afrad.' }) }
     ] }
   ]));
@@ -115,6 +128,8 @@ function create() {
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
   });
   buildMenu(win);
+  win.webContents.once('did-finish-load', () => peekUpdate(win));
+  win.on('focus', () => peekUpdate(win));
   win.loadFile(path.join(__dirname, 'index.html'));
 }
 app.whenReady().then(create);
