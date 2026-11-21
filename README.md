@@ -1,6 +1,7 @@
-<p align="center"><img src="Resources/Logo.png" width="140" alt="Afrad Typer"></p>
+<p align="center"><img src="Resources/Logo.png" width="180" alt="Afrad Touch Typing"></p>
 
-# Afrad Typer
+<h1 align="center">Afrad</h1>
+<p align="center"><b>T O U C H &nbsp; T Y P I N G</b></p>
 
 [![Download for MacOS](Resources/badge-macos.svg)](https://github.com/afrad86/Afrad-Typer/raw/main/release/Afrad-Typer.zip) [![Download for Windows](Resources/badge-win.svg)](https://github.com/afrad86/Afrad-Typer/raw/main/release/Afrad-Typer-Windows.exe)
 

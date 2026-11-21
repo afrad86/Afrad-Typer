@@ -32,29 +32,19 @@ enum AppIcon {
 /// The "Afrad" logo shown at the top-left of the window.
 struct AfradLogo: View {
     var body: some View {
-        HStack(spacing: 8) {
+        HStack {
+            Spacer()
             if let l = AppIcon.logo {
                 Image(nsImage: l)
                     .resizable()
-                    .frame(width: 34, height: 34)
+                    .interpolation(.high)
+                    .frame(width: 72, height: 72)
             } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(
-                            LinearGradient(
-                                colors: [Color(white: 0.31), Color(white: 0.25)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                    Text("A")
-                        .font(.system(size: 20, weight: .heavy, design: .rounded))
-                        .foregroundColor(Color(red: 1.0, green: 0.596, blue: 0.0))
-                }
-                .frame(width: 30, height: 30)
+                Text("Afrad")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundColor(Color(red: 1.0, green: 0.82, blue: 0.25))
             }
-            Text("Afrad")
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+            Spacer()
         }
     }
 }
