@@ -48,6 +48,10 @@ struct GuideView: View {
             "Daily Practice splits the goal: warm-up 15%, lessons 40%, timed tests 25%, real text 20%.",
             "A streak counts consecutive days with practice. The 12-week calendar and the road-to-your-goal forecast appear in Progress; the forecast needs at least 5 practice days."
         ]),
+        ("update", "Updating the app", [
+            "Open Help \u{2192} Check for Updates\u{2026} in the menu bar. If a newer version exists, choose Install and Restart: the app downloads it, replaces itself and reopens. Your progress is kept.",
+            "It needs an internet connection. The very first update-capable version has to be installed by hand; after that, updates are automatic."
+        ]),
         ("safe", "Backups, sync, passwords and Touch ID", [
             "A backup is saved automatically every week (the newest 8 are kept), and your data can sync through iCloud.",
             "Passwords are per user and cannot be recovered. They keep other people out of your profile but are not encryption.",

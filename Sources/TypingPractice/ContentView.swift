@@ -104,6 +104,7 @@ struct ContentView: View {
         .onAppear {
             NSApp.applicationIconImage = AppIcon.make()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openGuide)) { _ in showGuide("level") }
     }
 
     @ViewBuilder

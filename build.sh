@@ -55,6 +55,8 @@ rm -rf "$BUNDLE.app" "TypingPractice.app" "$BUNDLE.zip" "TypingPractice.zip"
 mkdir -p "$BUNDLE.app/Contents/MacOS" "$BUNDLE.app/Contents/Resources"
 cp "$OUT/$EXE" "$BUNDLE.app/Contents/MacOS/$EXE"
 cp Resources/Info.plist "$BUNDLE.app/Contents/Info.plist"
+VERSION="$(tr -d '[:space:]' < VERSION)"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$BUNDLE.app/Contents/Info.plist"
 if [ -f Resources/Logo.png ]; then
   cp Resources/Logo.png "$BUNDLE.app/Contents/Resources/Logo.png"
 fi
@@ -70,6 +72,8 @@ ditto -c -k --keepParent "$BUNDLE.app" "$BUNDLE.zip"
 # Copy for the repository, so another Mac can use the app without building it
 mkdir -p release
 cp "$BUNDLE.zip" release/Afrad-Typer.zip
+REPO="https://raw.githubusercontent.com/afrad86/Afrad-Typer/main/release"
+printf '{"version":"%s","mac":"%s/Afrad-Typer.zip","windows":"%s/Afrad-Typer-Windows.exe"}\n' "$VERSION" "$REPO" "$REPO" > release/version.json
 rm -rf "$OUT"
 
 echo ""

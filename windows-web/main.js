@@ -1,4 +1,7 @@
-const { app, BrowserWindow, screen, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, screen, ipcMain, dialog, shell, Menu } = require('electron');
+const https = require('https');
+const os = require('os');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -56,14 +59,62 @@ ipcMain.handle('syncWrite', (e, name, json) => {
   try { const f = path.join(d, 'AfradTyper-' + safe(name) + '.json'); fs.writeFileSync(f + '.tmp', json); fs.renameSync(f + '.tmp', f); return true; } catch (x) { return false; }
 });
 
+
+/* ---------- updates: Help > Check for updates ---------- */
+const BASE = 'https://raw.githubusercontent.com/afrad86/Afrad-Typer/main/release/';
+const newer = (a, b) => { const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number); for (let i = 0; i < Math.max(x.length, y.length); i++) { const p = x[i] || 0, q = y[i] || 0; if (p !== q) return p > q; } return false; };
+function fetchTo(url, dest, hops) {
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { 'User-Agent': 'AfradTyper' } }, res => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && (hops || 0) < 5) { res.resume(); return resolve(fetchTo(new URL(res.headers.location, url).toString(), dest, (hops || 0) + 1)); }
+      if (res.statusCode !== 200) { res.resume(); return reject(new Error('HTTP ' + res.statusCode)); }
+      if (dest) { const f = fs.createWriteStream(dest); res.pipe(f); f.on('finish', () => f.close(() => resolve(dest))); f.on('error', reject); }
+      else { let s = ''; res.setEncoding('utf8'); res.on('data', d => { s += d; }); res.on('end', () => resolve(s)); }
+    }).on('error', reject).setTimeout(30000, function () { this.destroy(new Error('timeout')); });
+  });
+}
+async function checkUpdates(win) {
+  const box = o => dialog.showMessageBox(win, Object.assign({ type: 'info', buttons: ['OK'] }, o));
+  let info;
+  try { info = JSON.parse(await fetchTo(BASE + 'version.json?t=' + Date.now())); } catch (e) { return box({ message: 'Could not check for updates', detail: 'Check your internet connection and try again.' }); }
+  const cur = app.getVersion();
+  if (!info.version || !newer(info.version, cur)) return box({ message: "You're up to date", detail: 'Afrad Typer ' + cur + ' is the latest version.' });
+  const r = await box({ type: 'question', buttons: ['Install and restart', 'Later'], defaultId: 0, cancelId: 1, message: 'Update available: ' + info.version, detail: 'You have ' + cur + '. The app will download the update, replace itself and reopen. Your progress is kept.' });
+  if (r.response !== 0) return;
+  const target = process.env.PORTABLE_EXECUTABLE_FILE;
+  if (!target) return box({ message: 'This copy cannot update itself', detail: 'Download the latest Afrad-Typer-Windows.exe from the project page instead.' });
+  const tmp = path.join(os.tmpdir(), 'AfradTyper-update.exe');
+  try {
+    win.setTitle('Afrad Typer — downloading update…');
+    await fetchTo(info.windows || (BASE + 'Afrad-Typer-Windows.exe'), tmp);
+    if (fs.statSync(tmp).size < 20 * 1024 * 1024) throw new Error('too small');
+  } catch (e) { win.setTitle('Afrad Typer'); return box({ type: 'error', message: 'Update failed', detail: 'The download did not finish. Check your internet connection and try again.' }); }
+  const bat = path.join(os.tmpdir(), 'afrad-update.bat');
+  fs.writeFileSync(bat, ['@echo off', 'set N=0', ':retry', 'timeout /t 1 /nobreak >nul', 'move /Y "' + tmp + '" "' + target + '" >nul 2>&1', 'if errorlevel 1 (', '  set /a N+=1', '  if %N% lss 40 goto retry', '  exit /b 1', ')', 'start "" "' + target + '"', '(goto) 2>nul & del "%~f0"'].join('\r\n'));
+  spawn('cmd.exe', ['/c', bat], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+  app.quit();
+}
+function buildMenu(win) {
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    { role: 'editMenu' },
+    { label: 'Help', submenu: [
+      { label: 'How it works', click: () => win.webContents.send('open-guide') },
+      { type: 'separator' },
+      { label: 'Check for updates…', click: () => checkUpdates(win) },
+      { label: 'About Afrad Typer', click: () => dialog.showMessageBox(win, { type: 'info', message: 'Afrad Typer', detail: 'Version ' + app.getVersion() + '\nCopyright © 2026 Hassan Afrad.' }) }
+    ] }
+  ]));
+}
+
 function create() {
   const wa = screen.getPrimaryDisplay().workAreaSize;
   const win = new BrowserWindow({
     width: Math.min(Math.round(wa.width * 0.92), 1700), height: Math.min(Math.round(wa.height * 0.94), 1250),
-    minWidth: 760, minHeight: 480, autoHideMenuBar: true, backgroundColor: '#2b2b2b', title: 'Afrad Typer',
+    minWidth: 760, minHeight: 480, autoHideMenuBar: false, backgroundColor: '#2b2b2b', title: 'Afrad Typer',
     icon: path.join(__dirname, 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
   });
+  buildMenu(win);
   win.loadFile(path.join(__dirname, 'index.html'));
 }
 app.whenReady().then(create);

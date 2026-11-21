@@ -36,5 +36,13 @@ struct TypingPracticeApp: App {
                 .frame(minWidth: TypingPracticeApp.minWidth, minHeight: 480)
                 .background(WindowFitter())
         }
+        .commands {
+            CommandGroup(replacing: .help) {
+                Button("How it works") { NotificationCenter.default.post(name: .openGuide, object: nil) }
+                Divider()
+                Button("Check for Updates\u{2026}") { Updater.check() }
+                Button("About Afrad Typer") { Updater.about() }
+            }
+        }
     }
 }

@@ -705,13 +705,18 @@ final class PracticeController: ObservableObject {
             switch e {
             case .enter: proceed()
             case .tab: if result?.passed == true { proceed() } else { retry() }
-            case .escape: retry()
+            case .escape:
+                if focusMode { focusMode = false }
+                retry()
             default: break
             }
             return
         }
         switch e {
-        case .escape, .tab: newSession()
+        case .escape:
+            if focusMode { focusMode = false }
+            newSession()
+        case .tab: newSession()
         case .enter: break
         case .backspace: backspace()
         case .char(let ch): typeChar(ch)

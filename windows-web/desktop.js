@@ -88,3 +88,5 @@ document.addEventListener('click', async e => {
   deskCfg = await DESK.config(); syncFolder = deskCfg.syncFolder;
   if (syncFolder && await syncPullAll()) { if (!user) showPicker(); }
 })();
+
+if (DESK && DESK.onGuide) DESK.onGuide(() => { guideOpen = 'level'; tab = 'guide'; renderAll(); });

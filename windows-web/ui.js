@@ -330,7 +330,7 @@ window.addEventListener('keydown', e => {
   if (tab !== 'practice' && tab !== 'advanced') return;
   const tag = (e.target.tagName || '').toLowerCase();
   // Esc always restarts the lesson, even right after you used a drop-down or button.
-  if (e.key === 'Escape' && !e.ctrlKey && !e.metaKey && !e.altKey && !(tag === 'input' && e.target.type !== 'checkbox') && tag !== 'textarea') { e.preventDefault(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); retry(); return; }
+  if (e.key === 'Escape' && !e.ctrlKey && !e.metaKey && !e.altKey && !(tag === 'input' && e.target.type !== 'checkbox') && tag !== 'textarea') { e.preventDefault(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); if (S_().focusMode) { S_().focusMode = false; optsOpen = false; save(); } retry(); return; }
   if (['input', 'textarea', 'select'].includes(tag)) return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (T.result) {
@@ -454,6 +454,7 @@ const GUIDE = [
   ['keys', 'Keys and shortcuts', ['Backspace fixes the last letter; mistakes still count against accuracy. In strict mode Backspace only clears the red mark.', 'Esc restarts the lesson. Tab goes to the next lesson after a pass. Enter also continues.', 'You can hide upcoming words (shown as grey blocks) to train looking ahead less.']],
   ['pause', 'Pause when you stop typing', ['{afk} The pause shows "Press any key to continue ...". You can change it in Settings (off, 2, 3, 5 or 10 seconds).', 'Paused time is not counted in WPM, daily minutes or the timed-test clock. {brk}']],
   ['goal', 'Daily goal, streak and calendar', ['Set your daily goal in minutes. Progress resets at midnight.', 'Daily Practice splits the goal: warm-up 15%, lessons 40%, timed tests 25%, real text 20%.', 'A streak counts consecutive days with practice. The 12-week calendar and the road-to-your-goal forecast appear in Progress; the forecast needs at least 5 practice days.']],
+  ['update', 'Updating the app', ['Open Help → Check for updates… in the menu bar. If a newer version exists, choose Install and restart: the app downloads it, replaces itself and reopens. Your progress is kept.', 'It needs an internet connection. The very first update-capable version has to be installed by hand; after that, updates are automatic.']],
   ['safe', 'Backups, sync, passwords and Touch ID', ['A backup is saved automatically every week in Documents\\Afrad Typer\\Backups. You can also choose a sync folder (for example OneDrive) in Progress.', 'Passwords are per user and cannot be recovered. They keep other people out of your profile but are not encryption.', 'Touch ID is available in the Mac app only.']]
 ];
 let guideOpen = 'level';
