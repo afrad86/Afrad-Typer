@@ -265,7 +265,7 @@ final class PracticeController: ObservableObject {
             if !pairs.isEmpty { sm.append("pairs " + pairs.map { $0.uppercased() }.joined(separator: " ")) }
             if !words.isEmpty { sm.append("words " + words.joined(separator: " ")) }
             let pct = Int((share * 100).rounded())
-            return (tokens, sm.joined(separator: "  ·  ") + "  (\(pct)% extra, from your last \(window) sessions)")
+            return (tokens, sm.joined(separator: "  ·  "))
         }
         var parts: [String] = []
         var summary: [String] = []
@@ -286,7 +286,7 @@ final class PracticeController: ObservableObject {
         }
         let tokens = parts.joined(separator: " ").split(separator: " ").map { String($0) }.shuffled()
         let pct = Int((share * 100).rounded())
-        return tokens.isEmpty ? nil : (tokens, summary.joined(separator: "  ·  ") + "  (\(pct)% extra, from your last \(window) sessions)")
+        return tokens.isEmpty ? nil : (tokens, summary.joined(separator: "  ·  "))
     }
 
     /// Spreads the extra weak-spot words evenly through the lesson instead of adding them at the end.

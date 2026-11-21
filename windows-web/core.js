@@ -245,7 +245,7 @@ function adaptiveBoost(s, baseWords, ngram) {
   if (pairs.length) sm.push('pairs ' + pairs.map(k => k.toUpperCase()).join(' '));
   if (words.length) sm.push('words ' + words.join(' '));
   const pct = Math.round(share * 100);
-  const summary = sm.join('  ·  ') + '  (' + pct + '% extra, from your last ' + win + ' sessions)';
+  const summary = sm.join('  ·  ');
   if (ngram) {
     const tokens = ngramBoost(ngram, ngram === 3 ? DRILL.Trigrams : DRILL.Tetragrams, keys, pairs, words, total);
     return tokens.length ? { tokens, summary } : null;

@@ -329,6 +329,7 @@ window.addEventListener('keydown', e => {
   if (!$('#app') || $('#app').hidden || !T) return;
   if (!$('#modal').hidden) { if (e.key === 'Enter') { e.preventDefault(); $('#modal-ok').click(); } return; }
   if (tab !== 'practice' && tab !== 'advanced') return;
+  if (tab === 'practice' && e.ctrlKey && !e.altKey && !e.metaKey && '1234'.includes(e.key) && e.key.length === 1) { e.preventDefault(); applyInput('mode', ['lessons', 'timed', 'passages', 'symbols'][Number(e.key) - 1]); return; }
   const tag = (e.target.tagName || '').toLowerCase();
   // Esc always restarts the lesson, even right after you used a drop-down or button.
   if (e.key === 'Escape' && !e.ctrlKey && !e.metaKey && !e.altKey && !(tag === 'input' && e.target.type !== 'checkbox') && tag !== 'textarea') { e.preventDefault(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); if (S_().focusMode) { S_().focusMode = false; optsOpen = false; save(); } retry(); return; }
@@ -367,8 +368,8 @@ function renderAll() {
   renderGoal();
   const hasPic = !!avatarOf(user);
   $('#who').innerHTML = '<div class="whorow"><span data-act="avatar" title="Click to ' + (hasPic ? 'change' : 'add') + ' your picture">' + avatarHtml(user) + '</span><span>' + esc(user) + '</span></div>' +
-    '<div class="wl"><span class="wk">Photo</span>' + (hasPic ? '<button class="link" data-act="avatar">Change photo</button> · <button class="link" data-act="avatar-remove">Remove</button>' : '<button class="link" data-act="avatar">Add photo</button>') + '</div>' +
-    '<div class="wl"><span class="wk">Password</span>' + (hasPw(user) ? '<button class="link" data-act="pw-change">Change password</button> · <button class="link" data-act="pw-remove">Remove</button>' : '<button class="link" data-act="pw-set">Set a password</button>') + '</div>' +
+    '<div class="wl"><span class="wlab">Photo</span>' + (hasPic ? '<button class="link" data-act="avatar">Change photo</button> · <button class="link" data-act="avatar-remove">Remove</button>' : '<button class="link" data-act="avatar">Add photo</button>') + '</div>' +
+    '<div class="wl"><span class="wlab">Password</span>' + (hasPw(user) ? '<button class="link" data-act="pw-change">Change password</button> · <button class="link" data-act="pw-remove">Remove</button>' : '<button class="link" data-act="pw-set">Set a password</button>') + '</div>' +
     '<button class="small" id="switch">Switch user</button>';
 }
 const PLAN = [
@@ -486,13 +487,17 @@ function renderPractice() {
   // top row
   const modes = [['lessons', 'Lessons'], ['timed', 'Timed'], ['passages', 'Passages'], ['symbols', 'Symbols']];
   $('#top').innerHTML =
-    (mode === 'stages' ? '<span class="modelabel">Advanced stages</span>' :
+    (mode === 'stages' ? '<span class="modelabel">Advanced stages</span>' : !focus ? '' :
       '<select data-input="mode">' + modes.map(m => '<option value="' + m[0] + '"' + (m[0] === mode ? ' selected' : '') + '>' + m[1] + '</option>').join('') + '</select>') +
     '<span class="lesson">' + esc(T.label) + '</span><span class="sp"></span>' +
     '<button class="small' + (s.sounds ? ' on' : '') + '" data-act="sounds">Sounds</button>' +
     '<button class="small" data-act="smaller">A−</button><button class="small" data-act="bigger">A+</button>' +
     '<button class="small' + (optsOpen ? ' on' : '') + '" data-act="opts">Settings</button>' +
     '<button class="small' + (focus ? ' on' : '') + '" data-act="focus">Focus</button>';
+  // sheet tabs on top of the typing area
+  const mt = $('#mtabs');
+  mt.hidden = focus || mode === 'stages';
+  mt.innerHTML = modes.map(m => '<button class="mtab' + (m[0] === mode ? ' on' : '') + '" data-set="mode" data-val="' + m[0] + '">' + (m[0] === 'symbols' ? 'Numbers &amp; symbols' : m[1]) + '</button>').join('') + '<span class="mhint">Click a tab, or press Ctrl+1 to 4</span>';
   // stats
   $('#stats').hidden = focus;
   // options area
@@ -503,22 +508,32 @@ function renderPractice() {
   h += '<div class="row"><b>Words ahead</b>' + (mode === 'stages' ? '<span class="muted"> always visible in stage lessons</span>' :
     '<div class="radios">' + [[0, 'Always visible'], [1, 'Hide next word'], [2, 'Hide next two words']].map(o => '<button class="opt' + (s.hideAhead === o[0] ? ' on' : '') + '" data-set="hideAhead" data-val="' + o[0] + '" data-num="1">' + o[1] + '</button>').join('') + '</div>') + '</div>';
   if (mode === 'lessons') h += lessonPanelHtml(s);
+  if (mode === 'timed' || mode === 'passages' || mode === 'symbols') h += modePanelHtml(s, mode);
   if (mode === 'stages') h += advancedPanelHtml(s);
   if (optsOpen) h += settingsHtml(s);
   opts.innerHTML = h;
   renderTyping();
   updateStats();
 }
+const chips = (key, vals, cur, num, fmt) => vals.map(v => '<button class="chip' + (v === cur ? ' on' : '') + '" data-set="' + key + '" data-val="' + v + '"' + (num ? ' data-num="1"' : '') + '>' + (fmt ? fmt(v) : v) + '</button>').join('');
+const orow = (label, inner) => '<div class="orow"><span class="olab">' + label + '</span><div class="ochips">' + inner + '</div></div>';
+const numIn = (label, key, min, max, val, step) => '<label class="nin">' + label + ' <input type="number" class="num" data-input="' + key + '" min="' + min + '" max="' + max + '"' + (step ? ' step="' + step + '"' : '') + ' value="' + val + '"></label>';
 function lessonPanelHtml(s) {
-  return '<div class="panel"><div class="grid">' +
-    '<div><h4>Source</h4>' + radio('source', ['Words', 'Common words', 'Trigrams', 'Tetragrams', 'Custom'], s.source) + '</div>' +
-    (s.source === 'Custom' ? '<div><h4>Custom words</h4><textarea data-input="customWords" rows="3" placeholder="Type or paste words separated by spaces">' + esc(s.customWords) + '</textarea></div>' :
-      '<div><h4>Scope (Top N)</h4>' + radio('scope', SCOPES, s.scope, true) + '</div>') +
-    '<div><h4>Generator</h4>' + radio('generator', ['Combination', 'Repetition'], s.generator) + '</div>' +
-    '<div><h4>Threshold</h4><span class="muted">pass at</span> <input type="number" class="num" data-input="minWPM" min="5" max="200" value="' + s.minWPM + '"> WPM <input type="number" class="num" data-input="minAccuracy" min="50" max="100" value="' + s.minAccuracy + '"> % accuracy</div>' +
-    '<div><h4>Per lesson</h4><input type="number" class="num" data-input="itemsPerLesson" min="1" max="50" value="' + s.itemsPerLesson + '"> items × <input type="number" class="num" data-input="repetition" min="1" max="20" value="' + s.repetition + '"> repeats</div>' +
-    '<div><h4>Options</h4>' + toggle('mixedOrder', s.mixedOrder, 'Mixed order') + ' ' + toggle('autoFocus', s.autoFocus, 'Automatic weak-spot practice') + '</div>' +
-    '</div></div>';
+  return '<div class="panel hz">' +
+    orow('Source', chips('source', ['Trigrams', 'Tetragrams', 'Words', 'Common words', 'Custom'], s.source)) +
+    (s.source === 'Custom' ? orow('Custom words', '<textarea data-input="customWords" rows="2" placeholder="Type or paste words separated by spaces">' + esc(s.customWords) + '</textarea>') :
+      orow('Scope', chips('scope', SCOPES, s.scope, true, v => 'Top ' + v))) +
+    orow('Generator', chips('generator', ['Combination', 'Repetition'], s.generator) + numIn('Combination', 'itemsPerLesson', 1, 50, s.itemsPerLesson) + numIn('Repetition', 'repetition', 1, 20, s.repetition)) +
+    orow('Threshold', numIn('WPM', 'minWPM', 5, 200, s.minWPM, 5) + numIn('Accuracy %', 'minAccuracy', 50, 100, s.minAccuracy) + toggle('mixedOrder', s.mixedOrder, 'Mixed order') + ' ' + toggle('autoFocus', s.autoFocus, 'Auto-focus on my weak spots')) +
+    '</div>';
+}
+function modePanelHtml(s, mode) {
+  const pool = orow('Words', chips('wordPool', [200, 500, 1000, 2000, 2883], s.wordPool, true, v => 'Top ' + v));
+  if (mode === 'timed') return '<div class="panel hz">' + orow('Duration', chips('timedSeconds', [15, 30, 60, 120, 180], s.timedSeconds, true, v => v + ' s')) + pool + '</div>';
+  if (mode === 'symbols') return '<div class="panel hz">' + pool + orow('Length', chips('wordCount', [15, 20, 30, 40, 60], s.wordCount, true, v => v + ' words')) + '</div>';
+  const list = allPassages();
+  return '<div class="panel hz">' + orow('Passage', '<select data-input="selectedPassage">' + list.map(p => '<option value="' + esc(p.id) + '"' + (p.id === s.selectedPassage ? ' selected' : '') + '>' + esc(p.title) + '</option>').join('') + '</select>') +
+    orow('Threshold', numIn('WPM', 'minWPM', 5, 200, s.minWPM, 5) + numIn('Accuracy %', 'minAccuracy', 50, 100, s.minAccuracy)) + '</div>';
 }
 function settingsHtml(s) {
   const sel = (key, vals, cur, fmt) => '<select data-input="' + key + '" data-num="1">' + vals.map(v => '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + (fmt ? fmt(v) : v) + '</option>').join('') + '</select>';

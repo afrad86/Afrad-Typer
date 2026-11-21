@@ -36,6 +36,7 @@ struct PracticeView: View {
                     aheadRow
                     if isLessonFamily { lessonPanel }
                     settingsSection
+                    ModeTabs()
                 }
                 typingArea
                 if !c.focusMode {
@@ -85,11 +86,11 @@ struct PracticeView: View {
 
     private var settingsSection: some View {
         VStack(spacing: 10) {
+            if settings.mode == .timed || settings.mode == .passages || settings.mode == .symbols || settings.mode == .stages {
+                optionsBar
+            }
             if c.settingsOpen {
-                optionsBar
                 extrasBar
-            } else if settings.mode == .stages {
-                optionsBar
             }
             infoBlock
         }
@@ -133,7 +134,6 @@ struct PracticeView: View {
     private var topRow: some View {
         HStack(spacing: 14) {
             if !c.focusMode {
-                modePicker
                 lessonRow
             }
             Spacer()
@@ -200,15 +200,32 @@ struct PracticeView: View {
         case .drills:
             EmptyView()
         case .timed:
-            Picker("Duration", selection: $store.data.settings.timedSeconds) {
-                ForEach([30, 60, 120], id: \.self) { n in
-                    Text("\(n) seconds").tag(n)
+            modePanel {
+                OptionRow("Duration") {
+                    ForEach([30, 60, 120], id: \.self) { n in
+                        OptionChip(title: "\(n) s", selected: settings.timedSeconds == n) { store.data.settings.timedSeconds = n }
+                    }
+                }
+                Divider()
+                poolRow
+            }
+        case .passages:
+            modePanel {
+                OptionRow("Passage") {
+                    Picker("Passage", selection: passageBinding) {
+                        ForEach(store.data.passages) { p in
+                            Text(p.title).tag(p.id)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 360)
+                }
+                Divider()
+                OptionRow("Threshold") {
+                    Stepper("WPM: \(settings.minWPM)", value: $store.data.settings.minWPM, in: 5...200, step: 5)
+                    Stepper("Accuracy: \(settings.minAccuracy)%", value: $store.data.settings.minAccuracy, in: 50...100)
                 }
             }
-            .pickerStyle(.segmented)
-            .frame(maxWidth: 360)
-        case .passages:
-            passageOptions
         case .stages:
             VStack(spacing: 6) {
                 Text("Advanced stage \(settings.stageSelected) WPM. Each lesson is \(settings.stageMinWords) words. Finish \(settings.stageMinLessons) lessons, in any number of days; at least 90% of your latest \(settings.stageMinLessons) must reach \(settings.stageSelected) WPM at \(Int(settings.stageAccuracy(for: settings.stageSelected)))%+ accuracy before the next stage unlocks.")
@@ -224,8 +241,31 @@ struct PracticeView: View {
         case .smart, .weakKeys, .slowWords, .pairs:
             EmptyView()
         case .symbols:
-            Text("Numbers, currency, brackets and symbols mixed with everyday words.")
-                .foregroundStyle(.secondary)
+            modePanel {
+                poolRow
+                Divider()
+                OptionRow("Length") {
+                    Stepper("Words per round: \(settings.wordCount)", value: $store.data.settings.wordCount, in: 10...300, step: 5)
+                }
+            }
+        }
+    }
+
+    /// The tidy panel around a mode's options.
+    private func modePanel<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(spacing: 0) { content() }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.08)))
+            .accentColor(Brand.orange)
+    }
+
+    private var poolRow: some View {
+        OptionRow("Words") {
+            ForEach([300, 1000, 2000, 3000], id: \.self) { n in
+                OptionChip(title: "Top \(n)", selected: settings.wordPool == n) { store.data.settings.wordPool = n }
+            }
         }
     }
 
@@ -338,46 +378,31 @@ struct PracticeView: View {
         let isCustom = settings.source == .custom
         let standard = settings.mode == .drills
         return VStack(spacing: 12) {
-            HStack(alignment: .top, spacing: 44) {
-                if standard {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Source").font(.headline)
-                        Picker("Source", selection: $store.data.settings.source) {
-                            ForEach(DrillSource.allCases) { s in
-                                Text(s.rawValue).tag(s)
-                            }
+            if standard {
+                VStack(spacing: 0) {
+                    OptionRow("Source") {
+                        ForEach(DrillSource.allCases) { s in
+                            OptionChip(title: s.rawValue, selected: settings.source == s) { store.data.settings.source = s }
                         }
-                        .pickerStyle(.radioGroup)
-                        .labelsHidden()
                     }
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Scope").font(.headline)
-                        Picker("Scope", selection: $store.data.settings.scope) {
-                            ForEach([50, 100, 150, 200, 500, 1000, 2000, 3000], id: \.self) { n in
-                                Text("Top \(n)").tag(n)
-                            }
+                    Divider()
+                    OptionRow("Scope") {
+                        ForEach([50, 100, 150, 200, 500, 1000, 2000, 3000], id: \.self) { n in
+                            OptionChip(title: "Top \(n)", selected: settings.scope == n, disabled: isCustom) { store.data.settings.scope = n }
                         }
-                        .pickerStyle(.radioGroup)
-                        .labelsHidden()
-                        .disabled(isCustom)
-                        .opacity(isCustom ? 0.4 : 1)
                     }
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Generator").font(.headline)
-                        Picker("Generator", selection: $store.data.settings.generator) {
-                            ForEach(GeneratorStyle.allCases) { g in
-                                Text(g.rawValue).tag(g)
-                            }
+                    Divider()
+                    OptionRow("Generator") {
+                        ForEach(GeneratorStyle.allCases) { g in
+                            OptionChip(title: g.rawValue, selected: settings.generator == g) { store.data.settings.generator = g }
                         }
-                        .pickerStyle(.radioGroup)
-                        .labelsHidden()
                         Stepper("Combination: \(settings.itemsPerLesson)", value: $store.data.settings.itemsPerLesson, in: 1...50)
                             .help("How many items go into one lesson")
                         Stepper("Repetition: \(settings.repetition)", value: $store.data.settings.repetition, in: 1...30)
                             .help("How many times the chain repeats")
                     }
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Threshold").font(.headline)
+                    Divider()
+                    OptionRow("Threshold") {
                         Stepper("WPM: \(settings.minWPM)", value: $store.data.settings.minWPM, in: 5...200, step: 5)
                         Stepper("Accuracy: \(settings.minAccuracy)%", value: $store.data.settings.minAccuracy, in: 50...100)
                         Toggle("Mixed order", isOn: $store.data.settings.mixedOrder)
@@ -385,7 +410,9 @@ struct PracticeView: View {
                         Toggle("Auto-focus on my weak spots", isOn: $store.data.settings.autoFocus)
                             .help("The app finds your weak keys, slow pairs and slow words and adds extra practice on them to every lesson")
                     }
-                } else {
+                }
+            } else {
+                HStack(alignment: .top, spacing: 44) {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Assessment").font(.headline)
                         Text(assessmentText)
@@ -410,9 +437,11 @@ struct PracticeView: View {
                     .frame(maxWidth: 700)
             }
         }
-        .padding(14)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.08)))
+        .accentColor(Brand.orange)
     }
 
     private var passageOptions: some View {
