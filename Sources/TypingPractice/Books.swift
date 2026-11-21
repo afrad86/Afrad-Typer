@@ -30,7 +30,20 @@ enum Books {
         return UUID(uuid: (b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15]))
     }
 
-    static var parts: [Passage] {
+    /// Which book and part a passage id belongs to (nil for your own passages).
+    static let index: [UUID: (book: Int, part: Int)] = {
+        var m: [UUID: (book: Int, part: Int)] = [:]
+        for (bi, b) in all.enumerated() {
+            for pi in 0..<b.parts.count { m[uuid(b.id, pi)] = (bi, pi) }
+        }
+        return m
+    }()
+
+    static let partList: [Passage] = makeParts()
+
+    static var parts: [Passage] { partList }
+
+    private static func makeParts() -> [Passage] {
         var out: [Passage] = []
         for b in all {
             for (i, p) in b.parts.enumerated() {

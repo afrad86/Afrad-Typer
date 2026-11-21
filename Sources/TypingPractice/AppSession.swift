@@ -25,6 +25,8 @@ final class AppSession: ObservableObject {
     @Published var store: Store? = nil
     @Published var controller: PracticeController? = nil
     @Published var message = ""
+    /// True when `message` is good news (shown in grey instead of red).
+    @Published var messageOK = false
     @Published var syncOn = false
 
     private let localBase: URL
@@ -136,6 +138,7 @@ final class AppSession: ObservableObject {
         if on {
             guard fm.fileExists(atPath: cloudParent.path) else {
                 message = "iCloud Drive is not turned on for this Mac, so sync is unavailable."
+                messageOK = false
                 objectWillChange.send()
                 return
             }
@@ -151,6 +154,7 @@ final class AppSession: ObservableObject {
             lastID = idx.lastID
         }
         message = on ? "Sync is on. Turn it on at the user screen on your other Mac too." : ""
+        messageOK = on
     }
 
     // MARK: Passwords (optional, per user)
@@ -361,6 +365,7 @@ final class AppSession: ObservableObject {
     // MARK: Users
 
     func signIn(_ p: ProfileInfo) {
+        store?.flush()
         controller?.shutdown()
         let s = Store(fileURL: profilesDir.appendingPathComponent(p.file), syncing: syncOn)
         let c = PracticeController(store: s)
@@ -373,6 +378,7 @@ final class AppSession: ObservableObject {
     }
 
     func signOut() {
+        store?.flush()
         controller?.shutdown()
         controller = nil
         store = nil
@@ -384,6 +390,7 @@ final class AppSession: ObservableObject {
         guard !n.isEmpty else { return }
         if profiles.contains(where: { $0.name.lowercased() == n.lowercased() }) {
             message = "A user called \(n) already exists."
+            messageOK = false
             return
         }
         let p = ProfileInfo(name: n, file: "\(UUID().uuidString).json")
@@ -479,7 +486,7 @@ struct ProfilePickerView: View {
                     .frame(maxWidth: 420)
             }
             if !session.message.isEmpty {
-                Text(session.message).foregroundStyle(.red).font(.callout)
+                Text(session.message).foregroundStyle(session.messageOK ? Color.secondary : Color.red).font(.callout)
             }
             if let p = confirm.value {
                 VStack(spacing: 8) {

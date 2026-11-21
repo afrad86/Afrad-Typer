@@ -49,7 +49,7 @@ struct TypingPracticeApp: App {
                 Button("How it works") { NotificationCenter.default.post(name: .openGuide, object: nil) }
                 Divider()
                 Button(updates.latest.map { "Update available v\($0)\u{2026}" } ?? "Check for Updates\u{2026}") { Updater.check() }
-                Button("About Afrad Typer") { Updater.about() }
+                Button("About Afrad Touch Typing") { Updater.about() }
             }
         }
     }

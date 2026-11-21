@@ -140,7 +140,7 @@ struct DailyGoalBox: View {
 
     var body: some View {
         let goal = max(1, store.data.settings.dailyGoalMinutes)
-        let done = store.secondsToday() / 60
+        let done = store.minutesToday
         let reached = done >= Double(goal)
         let barColor = reached ? Color(nsColor: .systemGreen) : Color.accentColor
         return VStack(alignment: .leading, spacing: 6) {
@@ -196,11 +196,7 @@ struct LevelBox: View {
         (0, "Beginner", Color.blue)
     ]
 
-    private var assessment: LevelCalc.Result? {
-        LevelCalc.assess(store.data.history,
-                         storedTier: store.data.settings.levelTier,
-                         storedPlain: store.data.settings.levelTierPlain)
-    }
+    private var assessment: LevelCalc.Result? { store.level }
 
     private func tile(_ value: String, _ label: String) -> some View {
         VStack(spacing: 1) {
@@ -233,7 +229,7 @@ struct LevelBox: View {
 
     var body: some View {
         let result = assessment
-        let count = LevelCalc.sessions(store.data.history).count
+        let count = store.levelSessionCount
         return VStack(alignment: .leading, spacing: 6) {
             if let a = result {
                 let lv = LevelBox.levels[a.tier]

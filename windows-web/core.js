@@ -39,14 +39,30 @@ function openUser(name) {
   const d = loadJSON('data.' + name, null) || {};
   data = { settings: Object.assign({}, DEF, d.settings || {}), history: d.history || [], passages: d.passages || [], resetAt: d.resetAt || 0 };
   data.settings.lessonByKey = data.settings.lessonByKey || {};
+  if (![200, 500, 1000, 2000, 3000].includes(data.settings.wordPool)) data.settings.wordPool = data.settings.wordPool > 2000 ? 3000 : 1000;
+  if (![15, 30, 60, 120, 180].includes(data.settings.timedSeconds)) data.settings.timedSeconds = 60;
   if (!profiles.includes(name)) { profiles.push(name); saveJSON('profiles', profiles); }
   saveJSON('last', name);
   save();
 }
+/* Keeps storage small: only the latest sessions keep their per-key, pair and word details
+   (the analysis uses the last 20); older sessions keep just the summary (speed, accuracy, time). */
+const DETAIL_KEEP = 50, HISTORY_MAX = 5000;
+function compactHistory(h, keep) {
+  const cut = h.length - keep;
+  for (let i = 0; i < cut; i++) { const r = h[i]; if (r.keys || r.pairs || r.words) { delete r.keys; delete r.pairs; delete r.words; } }
+}
+let saveWarned = false;
 function save() {
   if (!user) return;
-  if (data.history.length > 1200) data.history = data.history.slice(-1200);
-  saveJSON('data.' + user, data);
+  if (data.history.length > HISTORY_MAX) data.history = data.history.slice(-HISTORY_MAX);
+  compactHistory(data.history, DETAIL_KEEP);
+  let ok = saveJSON('data.' + user, data);
+  if (!ok) { compactHistory(data.history, 20); if (data.history.length > 2000) data.history = data.history.slice(-2000); ok = saveJSON('data.' + user, data); }
+  if (!ok && !saveWarned && window.showModal) {
+    saveWarned = true;
+    showModal('Progress could not be saved', 'This computer\'s storage for the app is full, so your latest progress was not saved. Use Progress \u2192 Export backup to keep a copy, then delete users you no longer need.', 'OK');
+  }
   if (window.onUserSaved) window.onUserSaved();
 }
 /* Merge another copy of this user's data (backup file or synced folder) into target. Returns true if anything changed. */

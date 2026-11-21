@@ -80,9 +80,16 @@ function newSession(opts) {
     if (!chunks.length) t.label = 'This passage is empty';
     else {
       const key = 'passage|' + p.id; let idx = s.lessonByKey[key] || 0; if (idx < 0 || idx >= chunks.length) idx = 0;
-      t.idx = idx; t.count = chunks.length; t.key = key; t.text = chunks[idx];
-      const short = p.title.length > 42 ? p.title.slice(0, 42) + '…' : p.title;
-      t.label = short + ' — part ' + (idx + 1) + ' / ' + chunks.length; t.detail = short + ' · part ' + (idx + 1);
+      t.idx = idx; t.count = chunks.length; t.key = key; t.text = chunks[idx]; t.passage = p.id;
+      const bk = p.book ? (window.BOOKS || []).find(b => b.id === p.book) : null;
+      if (bk) {
+        const part = Number(p.id.split(':')[2]) + 1;
+        t.label = bk.title + ' \u00b7 Part ' + part + ' of ' + bk.parts.length + ' \u00b7 page ' + (idx + 1) + ' of ' + chunks.length;
+        t.detail = bk.title + ' · part ' + part + ' · page ' + (idx + 1);
+      } else {
+        const short = p.title.length > 42 ? p.title.slice(0, 42) + '…' : p.title;
+        t.label = short + ' — page ' + (idx + 1) + ' / ' + chunks.length; t.detail = short + ' · part ' + (idx + 1);
+      }
     }
   } else if (mode === 'symbols') {
     t.text = symbolsText(s.wordPool, s.wordCount); t.label = 'Numbers & symbols';
@@ -143,7 +150,7 @@ function resumeIfPaused() {
 function tick() {
   if (!T || T.result) return;
   const afk = S_().afkSeconds;
-  if (!T.pausedAt && afk > 0 && T.started && T.lastKeyAt && performance.now() - T.lastKeyAt >= afk * 1000) { T.pausedAt = T.lastKeyAt + afk * 1000; setPauseBar(); }
+  if (!T.pausedAt && afk > 0 && !T.timeLimit && T.started && T.lastKeyAt && performance.now() - T.lastKeyAt >= afk * 1000) { T.pausedAt = T.lastKeyAt + afk * 1000; setPauseBar(); }
   if (T.pausedAt) { updateStats(); return; }
   updateStats();
   if (T.timeLimit > 0 && elapsedSecs() >= T.timeLimit) { finish(true); return; }
@@ -200,8 +207,8 @@ function typeChar(ch) {
     if (!correct) T.curErr = true;
   } else finalizeWord();
   const spans = $('#inner').children;
-  if (correct) { T.correctKeys++; if (isBoost) T.boostCorrect++; T.correctCount++; T.states[T.pos] = 1; spans[T.pos].className = 'ok'; }
-  else { T.states[T.pos] = 2; spans[T.pos].className = 'bad'; soundWrong(); }
+  if (correct) { T.correctKeys++; if (isBoost) T.boostCorrect++; T.correctCount++; T.states[T.pos] = 1; spans[T.pos].classList.remove('bad'); spans[T.pos].classList.add('ok'); }
+  else { T.states[T.pos] = 2; spans[T.pos].classList.remove('ok'); spans[T.pos].classList.add('bad'); soundWrong(); }
   if (correct || !S_().strictMode) {
     T.prev = expected; T.pos++;
     if (T.pos >= T.chars.length) { finish(false); return; }
@@ -215,37 +222,45 @@ function backspace() {
   if (!T || T.result) return;
   resumeIfPaused();
   if (S_().strictMode) { // strict mode never moves past a mistake, so Backspace just clears the red mark
-    if (T.states[T.pos] === 2) { T.states[T.pos] = 0; const s = $('#inner').children[T.pos]; if (s) s.className = 'cur'; setCaret(); }
+    if (T.states[T.pos] === 2) { T.states[T.pos] = 0; const s = $('#inner').children[T.pos]; if (s) s.classList.remove('bad'); setCaret(); }
     return;
   }
   if (T.pos <= 0) return;
   T.pos--;
   if (T.states[T.pos] === 1) T.correctCount--;
   T.states[T.pos] = 0;
-  const sp = $('#inner').children[T.pos]; if (sp) sp.className = '';
+  const sp = $('#inner').children[T.pos]; if (sp) sp.classList.remove('ok', 'bad');
   T.prev = T.pos > 0 ? T.chars[T.pos - 1] : null;
   T.curWord = -1; T.curSum = 0; T.curCount = 0; T.curErr = false;
   setCaret(); applyHide(); updateStats();
 }
+/* Caret and hidden words touch only the letters that change, so each key stays fast even on long texts. */
 function setCaret() {
-  const spans = $('#inner').children;
-  $$('#inner .cur').forEach(e => e.classList.remove('cur'));
+  const inner = $('#inner'), spans = inner.children;
+  if (T.curSpan && T.curSpan.isConnected) T.curSpan.classList.remove('cur');
+  T.curSpan = null;
   const c = spans[T.pos]; if (!c) return;
-  c.classList.add('cur');
-  const lh = parseFloat(getComputedStyle($('#inner')).lineHeight) || 40;
-  const line = Math.round(c.offsetTop / lh);
-  $('#inner').style.transform = 'translateY(' + (-Math.max(0, line - 1) * lh) + 'px)';
+  c.classList.add('cur'); T.curSpan = c;
+  const lh = T.lh || (T.lh = parseFloat(getComputedStyle(inner).lineHeight) || 40);
+  // letter positions are measured once per layout (colours never move letters), not at every key
+  if (!T.tops) T.tops = Array.from(spans, s => s.offsetTop);
+  const line = Math.round((T.tops[T.pos] !== undefined ? T.tops[T.pos] : c.offsetTop) / lh);
+  if (line !== T.caretLine) { T.caretLine = line; inner.style.transform = 'translateY(' + (-Math.max(0, line - 1) * lh) + 'px)'; }
 }
 function applyHide() {
-  const n = S_().hideAhead; if (!T) return;
-  const spans = $('#inner').children;
-  const hideOn = n > 0 && T.mode !== 'stages';
-  const cw = T.wordAt[Math.min(T.pos, T.chars.length - 1)];
-  for (let i = 0; i < spans.length; i++) {
-    const w = T.wordAt[i];
-    const hide = hideOn && w >= 0 && cw >= 0 && w > cw && w <= cw + n;
-    spans[i].classList.toggle('hid', hide);
+  if (!T) return;
+  const n = S_().hideAhead, spans = $('#inner').children;
+  const prev = T.hidSpans || [];
+  const now = [];
+  if (n > 0 && T.mode !== 'stages') {
+    const cw = T.wordAt[Math.min(T.pos, T.chars.length - 1)];
+    if (cw >= 0) for (let w = cw + 1; w <= cw + n && w < T.words.length; w++) for (let i = T.words[w][0]; i < T.words[w][1]; i++) now.push(i);
   }
+  if (prev.length === now.length && prev.every((v, k) => v === now[k])) return;
+  const keep = new Set(now);
+  prev.forEach(i => { if (!keep.has(i) && spans[i]) spans[i].classList.remove('hid'); });
+  now.forEach(i => { if (spans[i]) spans[i].classList.add('hid'); });
+  T.hidSpans = now;
 }
 
 function finish(timedOut) {
@@ -321,7 +336,16 @@ function stageNote(reasons) {
 function proceed() {
   const s = S_();
   if (T && T.result && T.result.passed !== false && ['lessons', 'passages'].includes(T.mode) && !T.replay && T.key) {
-    s.lessonByKey[T.key] = (T.idx + 1) % T.count; save();
+    const m = T.mode === 'passages' && T.idx + 1 >= T.count && /^book:/.test(T.passage || '') ? T.passage.split(':') : null;
+    if (m) {
+      // last page of a story part: go on to the next part of the book (after the last part, back to the start)
+      const bk = (window.BOOKS || []).find(b => b.id === m[1]);
+      const next = bk ? (Number(m[2]) + 1) % bk.parts.length : 0;
+      s.lessonByKey[T.key] = 0;
+      s.selectedPassage = 'book:' + m[1] + ':' + next;
+      s.lessonByKey['passage|' + s.selectedPassage] = 0;
+    } else s.lessonByKey[T.key] = (T.idx + 1) % T.count;
+    save();
   }
   newSession();
 }
@@ -345,7 +369,7 @@ window.addEventListener('keydown', e => {
     else if (e.key === 'Escape') { e.preventDefault(); retry(); }
     return;
   }
-  if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); if (T.started) retry(); return; }
+  if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); retry(); return; }
   if (e.key === 'Backspace') { e.preventDefault(); backspace(); return; }
   if (e.key === ' ') e.preventDefault();
   if (e.key.length === 1) { e.preventDefault(); typeChar(e.key); }
@@ -535,7 +559,7 @@ function lessonPanelHtml(s) {
     '</div>';
 }
 function modePanelHtml(s, mode) {
-  const pool = orow('Words', chips('wordPool', [200, 500, 1000, 2000, 2883], s.wordPool, true, v => 'Top ' + v));
+  const pool = orow('Words', chips('wordPool', [200, 500, 1000, 2000, 3000], s.wordPool, true, v => 'Top ' + v));
   if (mode === 'timed') return '<div class="panel hz">' + orow('Duration', chips('timedSeconds', [15, 30, 60, 120, 180], s.timedSeconds, true, v => v + ' s')) + pool + '</div>';
   if (mode === 'symbols') return '<div class="panel hz">' + pool + orow('Length', chips('wordCount', [15, 20, 30, 40, 60], s.wordCount, true, v => v + ' words')) + '</div>';
   const list = allPassages();
@@ -548,7 +572,7 @@ function settingsHtml(s) {
     '<div>Capital letters <input type="range" min="0" max="30" data-input="capitalPercent" value="' + s.capitalPercent + '"> <b>' + s.capitalPercent + '%</b></div>' +
     '<div>Punctuation <input type="range" min="0" max="30" data-input="punctuationPercent" value="' + s.punctuationPercent + '"> <b>' + s.punctuationPercent + '%</b></div>' +
     '<div>Timed test ' + sel('timedSeconds', [15, 30, 60, 120, 180], s.timedSeconds, v => v + ' s') + '</div>' +
-    '<div>Word pool ' + sel('wordPool', [200, 500, 1000, 2000, 2883], s.wordPool, v => 'top ' + v) + '</div>' +
+    '<div>Word pool ' + sel('wordPool', [200, 500, 1000, 2000, 3000], s.wordPool, v => 'top ' + v) + '</div>' +
     '<div>Words per round ' + sel('wordCount', [15, 20, 30, 40, 60], s.wordCount) + '</div>' +
     '<div>Lines shown ' + sel('linesShown', [2, 3, 4, 5, 6], s.linesShown) + '</div>' +
     '<div>Pace marker ' + sel('paceWPM', [0, 30, 40, 50, 60, 70, 80, 90, 100, 110], s.paceWPM, v => v ? v + ' WPM' : 'off') + '</div>' +
@@ -584,12 +608,13 @@ function renderTyping() {
   box.style.height = Math.round(fs * 1.7 * s.linesShown + 24) + 'px';
   inner.style.transform = 'translateY(0)';
   inner.innerHTML = T.chars.map((c, i) => '<span' + (T.states[i] === 1 ? ' class="ok"' : T.states[i] === 2 ? ' class="bad"' : '') + '>' + esc(c) + '</span>').join('');
+  T.lh = 0; T.caretLine = -1; T.curSpan = null; T.hidSpans = []; T.tops = null;
   setCaret(); applyHide();
   if (T.pace > 0) markPace(Math.floor(elapsedSecs() * T.pace * 5 / 60));
   setPauseBar();
   const r = T.result, rc = $('#result');
   rc.hidden = !r;
-  $('#hint').textContent = r ? '' : (T.started ? 'Backspace fixes a mistake  ·  Esc / Tab: restart' : 'Start typing…  (Backspace fixes mistakes  ·  Esc / Tab: new text)');
+  $('#hint').textContent = r ? '' : (T.started ? 'Backspace fixes a mistake  ·  Esc / Tab: restart' : 'Start typing…  (Backspace fixes mistakes  ·  Esc / Tab: restart)');
   if (r) {
     let h = '<div class="tiles">' + tile('WPM', r.wpm.toFixed(0)) + tile('Accuracy', r.acc.toFixed(1) + '%') + tile('Raw', r.raw.toFixed(0)) + tile('Consistency', r.consistency ? r.consistency.toFixed(0) + '%' : '—') + tile('Time', r.secs.toFixed(0) + ' s') + '</div>';
     if (r.passed !== null) h += '<p class="verdict ' + (r.passed ? 'pass' : 'fail') + '">' + (r.passed ? 'Passed' : 'Not passed — try again') + '</p>';
@@ -773,7 +798,7 @@ document.addEventListener('change', e => {
         if (j.avatar && !avatarOf(user)) saveJSON('avatar.' + user, j.avatar);
         mergeInto(data, d);
         save(); renderAll(); alert('Backup imported: ' + (d.history || []).length + ' sessions merged.');
-      } catch (err) { alert('That file could not be read as an Afrad Typer backup.'); }
+      } catch (err) { alert('That file could not be read as an Afrad Touch Typing backup.'); }
     };
     rd.readAsText(t.files[0]); return;
   }

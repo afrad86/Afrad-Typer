@@ -219,7 +219,7 @@ struct PracticeView: View {
         case .timed:
             modePanel {
                 OptionRow("Duration") {
-                    ForEach([30, 60, 120], id: \.self) { n in
+                    ForEach([15, 30, 60, 120, 180], id: \.self) { n in
                         OptionChip(title: "\(n) s", selected: settings.timedSeconds == n) { store.data.settings.timedSeconds = n }
                     }
                 }
@@ -232,6 +232,13 @@ struct PracticeView: View {
                     Picker("Passage", selection: passageBinding) {
                         ForEach(store.data.passages) { p in
                             Text(p.title).tag(p.id)
+                        }
+                        ForEach(Books.all) { b in
+                            Section(b.title) {
+                                ForEach(0..<b.parts.count, id: \.self) { i in
+                                    Text(b.parts[i].title).tag(Books.uuid(b.id, i))
+                                }
+                            }
                         }
                     }
                     .labelsHidden()
@@ -275,12 +282,12 @@ struct PracticeView: View {
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity)
             .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.08)))
-            .accentColor(Brand.orange)
+            .accentColor(Brand.slateLine)
     }
 
     private var poolRow: some View {
         OptionRow("Words") {
-            ForEach([300, 1000, 2000, 3000], id: \.self) { n in
+            ForEach([200, 500, 1000, 2000, 3000], id: \.self) { n in
                 OptionChip(title: "Top \(n)", selected: settings.wordPool == n) { store.data.settings.wordPool = n }
             }
         }
@@ -329,7 +336,7 @@ struct PracticeView: View {
                     .help("The pace caret speeds up after clean, fast rounds and eases off after sloppy ones")
                 if usesWordPool {
                     Picker("Word pool", selection: $store.data.settings.wordPool) {
-                        ForEach([300, 1000, 2000, 3000], id: \.self) { n in
+                        ForEach([200, 500, 1000, 2000, 3000], id: \.self) { n in
                             Text("Top \(n)").tag(n)
                         }
                     }
@@ -438,8 +445,8 @@ struct PracticeView: View {
                         Button("Back to standard lessons") { store.data.settings.mode = .drills }
                         if settings.mode == .smart {
                             Picker("Timed test length", selection: $store.data.settings.timedSeconds) {
-                                ForEach([30, 60, 120], id: \.self) { n in
-                                    Text("\(n) seconds").tag(n)
+                                ForEach([15, 30, 60, 120, 180], id: \.self) { n in
+                                    Text("\(n) s").tag(n)
                                 }
                             }
                             .pickerStyle(.segmented)
@@ -459,26 +466,6 @@ struct PracticeView: View {
         .frame(maxWidth: .infinity)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.08)))
         .accentColor(Brand.slateLine)
-    }
-
-    private var passageOptions: some View {
-        HStack(spacing: 18) {
-            Picker("Passage", selection: passageBinding) {
-                ForEach(store.data.passages) { p in
-                    Text(p.title).tag(p.id)
-                }
-                ForEach(Books.all) { b in
-                    Section(b.title) {
-                        ForEach(0..<b.parts.count, id: \.self) { i in
-                            Text(b.parts[i].title).tag(Books.uuid(b.id, i))
-                        }
-                    }
-                }
-            }
-            .frame(maxWidth: 420)
-            Stepper("Min WPM: \(settings.minWPM)", value: $store.data.settings.minWPM, in: 5...200, step: 5)
-            Stepper("Min accuracy: \(settings.minAccuracy)%", value: $store.data.settings.minAccuracy, in: 50...100)
-        }
     }
 
     private var passageBinding: Binding<UUID> {

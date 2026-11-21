@@ -128,7 +128,9 @@ final class PracticeController: ObservableObject {
 
     var liveWPM: Double {
         guard started else { return 0 }
-        let minutes = max(elapsed, 1) / 60
+        var secs = elapsed
+        if !paused, result == nil, let st = startDate { secs = Date().timeIntervalSince(st) - pausedTotal }
+        let minutes = max(secs, 1) / 60
         return Double(correctCount) / 5 / minutes
     }
 
@@ -425,10 +427,16 @@ final class PracticeController: ObservableObject {
                     lessonCount = chunks.count
                     currentKey = key
                     text = chunks[idx]
-                    let shortTitle = p.title.count > 42 ? String(p.title.prefix(42)) + "…" : p.title
-                    lessonLabel = "\(shortTitle) — part \(idx + 1) / \(chunks.count)"
+                    if let loc = Books.index[p.id] {
+                        let b = Books.all[loc.book]
+                        lessonLabel = "\(b.title) \u{00B7} Part \(loc.part + 1) of \(b.parts.count) \u{00B7} page \(idx + 1) of \(chunks.count)"
+                        detailText = "\(b.title) · part \(loc.part + 1) · page \(idx + 1)"
+                    } else {
+                        let shortTitle = p.title.count > 42 ? String(p.title.prefix(42)) + "…" : p.title
+                        lessonLabel = "\(shortTitle) — page \(idx + 1) / \(chunks.count)"
+                        detailText = "\(shortTitle) · part \(idx + 1)"
+                    }
                     infoLine = ""
-                    detailText = "\(shortTitle) · part \(idx + 1)"
                 }
             } else {
                 lessonLabel = "No passages yet — add one in the Library"
@@ -595,16 +603,30 @@ final class PracticeController: ObservableObject {
     func proceed() {
         guard let r = result else { return }
         if r.passed == true, let key = currentKey {
-            store.data.settings.lessonByKey[key] = lessonIndex + 1
+            advance(key: key)
         }
         newSession()
+    }
+
+    /// Moves to the next lesson or page. After the last page of a story part, goes on to the next part of the book.
+    private func advance(key: String) {
+        if currentMode == .passages, lessonIndex + 1 >= lessonCount,
+           let sel = store.data.settings.selectedPassage, let loc = Books.index[sel] {
+            let b = Books.all[loc.book]
+            let next = Books.uuid(b.id, (loc.part + 1) % b.parts.count)
+            store.data.settings.lessonByKey[key] = 0
+            store.data.settings.lessonByKey["passage|\(next.uuidString)"] = 0
+            store.data.settings.selectedPassage = next
+            return
+        }
+        store.data.settings.lessonByKey[key] = lessonIndex + 1
     }
 
     /// After a lesson: retype only the words you made mistakes on, once each.
     func startReplay() {
         guard let r = result, !missedWords.isEmpty else { return }
         if r.passed == true, let key = currentKey {
-            store.data.settings.lessonByKey[key] = lessonIndex + 1
+            advance(key: key)
         }
         replayWords = missedWords
         newSession()
@@ -859,7 +881,7 @@ final class PracticeController: ObservableObject {
         if paused { return }
         let now = Date()
         let afk = store.data.settings.afkSeconds
-        if afk > 0, let la = lastActivity, now.timeIntervalSince(la) >= Double(afk) {
+        if afk > 0, timeLimit == 0, let la = lastActivity, now.timeIntervalSince(la) >= Double(afk) {
             // No key for a few seconds: stop the clock until the next key.
             let stopAt = la.addingTimeInterval(Double(afk))
             paused = true
@@ -867,8 +889,10 @@ final class PracticeController: ObservableObject {
             elapsed = stopAt.timeIntervalSince(st) - pausedTotal
             return
         }
-        elapsed = now.timeIntervalSince(st) - pausedTotal
-        if timeLimit > 0 && elapsed >= timeLimit {
+        let e = now.timeIntervalSince(st) - pausedTotal
+        // Redrawing the screen costs time, so the clock updates once a second (smoothly only for the pace caret).
+        if effectivePace > 0 || Int(e) != Int(elapsed) { elapsed = e }
+        if timeLimit > 0 && e >= timeLimit {
             finish(timedOut: true)
         }
     }

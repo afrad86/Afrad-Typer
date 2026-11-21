@@ -122,14 +122,31 @@ enum PassageChunker {
     /// Splits a passage into lesson-sized pieces at sentence boundaries.
     static func chunks(_ text: String, target: Int = 260) -> [String] {
         let clean = text.replacingOccurrences(of: "\n", with: " ")
+        // A sentence ends at . ! or ? (including "..." and "?!"), plus any closing quotes or brackets,
+        // and only when a space or the end of the text follows. So "3.5", "..." and a closing quote stay intact.
+        let chars = Array(clean)
+        let enders: Set<Character> = [".", "!", "?"]
+        let closers: Set<Character> = ["\"", "'", ")", "]"]
         var sentences: [String] = []
         var cur = ""
-        for ch in clean {
+        var i = 0
+        while i < chars.count {
+            let ch = chars[i]
             cur.append(ch)
-            if ch == "." || ch == "!" || ch == "?" {
-                sentences.append(cur)
-                cur = ""
+            if enders.contains(ch) {
+                var j = i + 1
+                while j < chars.count, enders.contains(chars[j]) || closers.contains(chars[j]) {
+                    cur.append(chars[j])
+                    j += 1
+                }
+                i = j
+                if j >= chars.count || chars[j] == " " {
+                    sentences.append(cur)
+                    cur = ""
+                }
+                continue
             }
+            i += 1
         }
         if !cur.trimmingCharacters(in: .whitespaces).isEmpty { sentences.append(cur) }
 

@@ -91,17 +91,17 @@ async function checkUpdates(win) {
   const cur = app.getVersion();
   const np = info.version && newer(info.version, cur) ? info.version : null;
   if (np !== pendingVersion) { pendingVersion = np; buildMenu(win); }
-  if (!info.version || !newer(info.version, cur)) return box({ message: "You're up to date", detail: 'Afrad Typer ' + cur + ' is the latest version.' });
+  if (!info.version || !newer(info.version, cur)) return box({ message: "You're up to date", detail: 'Afrad Touch Typing ' + cur + ' is the latest version.' });
   const r = await box({ type: 'question', buttons: ['Install and restart', 'Later'], defaultId: 0, cancelId: 1, message: 'Update available: ' + info.version, detail: 'You have ' + cur + '. The app will download the update, replace itself and reopen. Your progress is kept.' });
   if (r.response !== 0) return;
   const target = process.env.PORTABLE_EXECUTABLE_FILE;
   if (!target) return box({ message: 'This copy cannot update itself', detail: 'Download the latest Afrad-Typer-Windows.exe from the project page instead.' });
   const tmp = path.join(os.tmpdir(), 'AfradTyper-update.exe');
   try {
-    win.setTitle('Afrad Typer — downloading update…');
+    win.setTitle('Afrad Touch Typing — downloading update…');
     await fetchTo(info.windows || (BASE + 'Afrad-Typer-Windows.exe'), tmp);
     if (fs.statSync(tmp).size < 20 * 1024 * 1024) throw new Error('too small');
-  } catch (e) { win.setTitle('Afrad Typer'); return box({ type: 'error', message: 'Update failed', detail: 'The download did not finish. Check your internet connection and try again.' }); }
+  } catch (e) { win.setTitle('Afrad Touch Typing'); return box({ type: 'error', message: 'Update failed', detail: 'The download did not finish. Check your internet connection and try again.' }); }
   const bat = path.join(os.tmpdir(), 'afrad-update.bat');
   fs.writeFileSync(bat, ['@echo off', 'set N=0', ':retry', 'timeout /t 1 /nobreak >nul', 'move /Y "' + tmp + '" "' + target + '" >nul 2>&1', 'if errorlevel 1 (', '  set /a N+=1', '  if %N% lss 40 goto retry', '  exit /b 1', ')', 'start "" "' + target + '"', '(goto) 2>nul & del "%~f0"'].join('\r\n'));
   spawn('cmd.exe', ['/c', bat], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
@@ -115,7 +115,7 @@ function buildMenu(win) {
       { label: 'How it works', click: () => win.webContents.send('open-guide') },
       { type: 'separator' },
       { label: pendingVersion ? 'Update available v' + pendingVersion + '…' : 'Check for updates…', click: () => checkUpdates(win) },
-      { label: 'About Afrad Typer', click: () => dialog.showMessageBox(win, { type: 'info', message: 'Afrad Typer', detail: 'Version ' + app.getVersion() + '\nCopyright © 2026 Hassan Afrad.' }) }
+      { label: 'About Afrad Touch Typing', click: () => dialog.showMessageBox(win, { type: 'info', message: 'Afrad Touch Typing', detail: 'Version ' + app.getVersion() + '\nCopyright © 2026 Hassan Afrad.' }) }
     ] }
   ]));
 }

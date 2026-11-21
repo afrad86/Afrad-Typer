@@ -61,7 +61,7 @@ enum Updater {
     }
 
     static func about() {
-        _ = alert("Afrad Typer", "Version \(current)\nCopyright \u{00A9} 2026 Hassan Afrad.")
+        _ = alert("Afrad Touch Typing", "Version \(current)\nCopyright \u{00A9} 2026 Hassan Afrad.")
     }
 
     static func check() {
@@ -83,7 +83,7 @@ enum Updater {
                 UpdateState.shared.latest = isNewer(latest, current) ? latest : nil
                 if !isNewer(latest, current) {
                     busy = false
-                    _ = alert("You're up to date", "Afrad Typer \(current) is the latest version.")
+                    _ = alert("You're up to date", "Afrad Touch Typing \(current) is the latest version.")
                     return
                 }
                 let go = alert("Update available: \(latest)",
@@ -110,7 +110,7 @@ enum Updater {
             fail("This app is in a folder you cannot change. Move it to Applications or your Desktop and try again.")
             return
         }
-        NSApp.mainWindow?.title = "Afrad Typer \u{2014} downloading update\u{2026}"
+        NSApp.mainWindow?.title = "Afrad Touch Typing \u{2014} downloading update\u{2026}"
         URLSession.shared.downloadTask(with: url) { tmp, _, err in
             guard let tmp = tmp, err == nil else { fail("The download did not finish. Check your internet connection."); return }
             let fm = FileManager.default

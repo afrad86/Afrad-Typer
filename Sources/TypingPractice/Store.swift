@@ -23,6 +23,19 @@ final class Store: ObservableObject {
     let fileURL: URL
     let syncing: Bool
     private var merging = false
+    private var pendingSave: DispatchWorkItem? = nil
+    private static let writer = DispatchQueue(label: "afrad.store.writer", qos: .utility)
+
+    /// Only the latest sessions keep their per-key, pair and word details (the analysis uses the last 20);
+    /// older ones keep the summary, so the file stays small and saving stays quick.
+    static let detailKeep = 50
+
+    // Cached results for the sidebar, recalculated only when the history changes.
+    private var levelKey = ""
+    private var levelValue: LevelCalc.Result? = nil
+    private var countValue = 0
+    private var todayKey = ""
+    private var todayValue = 0.0
 
     init(fileURL: URL, syncing: Bool = false) {
         self.fileURL = fileURL
@@ -42,20 +55,88 @@ final class Store: ObservableObject {
                 self?.mergeFromDisk()
             }
         }
-    }
-
-    private func save() {
-        if syncing { mergeQuietly() }
-        writeNow()
-    }
-
-    private func writeNow() {
-        do {
-            let raw = try Store.encoder.encode(data)
-            try raw.write(to: fileURL, options: .atomic)
-        } catch {
-            print("Save failed: \(error)")
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.flush()
         }
+    }
+
+    /// Changes are written at most about once a second, in the background, instead of at every click.
+    private func save() {
+        pendingSave?.cancel()
+        let w = DispatchWorkItem { [weak self] in self?.saveNow() }
+        pendingSave = w
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: w)
+    }
+
+    /// Writes any waiting change straight away (used when switching user and when the app quits).
+    func flush() {
+        guard let w = pendingSave else { return }
+        w.cancel()
+        pendingSave = nil
+        saveNow(wait: true)
+    }
+
+    private func saveNow(wait: Bool = false) {
+        pendingSave = nil
+        if syncing { mergeQuietly() }
+        writeNow(wait: wait)
+    }
+
+    private static func compacted(_ d: StoreData) -> StoreData {
+        var c = d
+        let cut = c.history.count - Store.detailKeep
+        if cut > 0 {
+            for i in 0..<cut where !c.history[i].keys.isEmpty || c.history[i].pairs != nil || c.history[i].words != nil {
+                c.history[i].keys = [:]
+                c.history[i].pairs = nil
+                c.history[i].words = nil
+            }
+        }
+        return c
+    }
+
+    private func writeNow(wait: Bool = false) {
+        let snapshot = Store.compacted(data)
+        let url = fileURL
+        let job = {
+            do {
+                let raw = try Store.encoder.encode(snapshot)
+                try raw.write(to: url, options: .atomic)
+            } catch {
+                print("Save failed: \(error)")
+            }
+        }
+        if wait { Store.writer.sync(execute: job) } else { Store.writer.async(execute: job) }
+    }
+
+    // MARK: Cached sidebar values
+
+    private var historyStamp: String { "\(data.history.count)|\(data.history.last?.id.uuidString ?? "")" }
+
+    /// Your level, worked out again only when a session is added or the stored tier changes.
+    var level: LevelCalc.Result? {
+        let k = historyStamp + "|\(data.settings.levelTier ?? -1)|\(data.settings.levelTierPlain ?? -1)"
+        if k != levelKey {
+            levelKey = k
+            levelValue = LevelCalc.assess(data.history, storedTier: data.settings.levelTier, storedPlain: data.settings.levelTierPlain)
+            countValue = LevelCalc.sessions(data.history).count
+        }
+        return levelValue
+    }
+
+    var levelSessionCount: Int {
+        _ = level
+        return countValue
+    }
+
+    /// Minutes typed today, cached until the history or the day changes.
+    var minutesToday: Double {
+        let k = historyStamp + "|" + Store.dayKey()
+        if k != todayKey {
+            todayKey = k
+            todayValue = secondsToday() / 60
+        }
+        return todayValue
     }
 
     /// Pulls in anything the other Mac added (iCloud Drive sync) without writing.
@@ -133,8 +214,10 @@ final class Store: ObservableObject {
     /// Per-key statistics, summed over every saved session.
     /// The sessions used for assessment: all of them, or only the latest `n` (so fixed weaknesses fade out).
     func recentRecords(_ n: Int?) -> ArraySlice<SessionRecord> {
-        guard let n = n else { return data.history[...] }
-        return data.history.suffix(n)
+        // Warm-ups and mistake replays are left out, so repeated replay words do not skew the analysis.
+        let counted = data.history.filter { $0.isCounted }
+        guard let n = n else { return counted[...] }
+        return counted.suffix(n)
     }
 
     var keyStats: [String: KeyStat] { keyStats(last: nil) }

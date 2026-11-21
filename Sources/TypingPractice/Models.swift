@@ -146,6 +146,7 @@ struct AppSettings: Codable, Equatable {
         autoFocusPercent = try c.decodeIfPresent(Int.self, forKey: .autoFocusPercent) ?? 40
         mixedOrder = try c.decodeIfPresent(Bool.self, forKey: .mixedOrder) ?? true
         timedSeconds = try c.decodeIfPresent(Int.self, forKey: .timedSeconds) ?? 60
+        if ![15, 30, 60, 120, 180].contains(timedSeconds) { timedSeconds = 60 }
         sounds = try c.decodeIfPresent(Bool.self, forKey: .sounds) ?? true
         capitalPercent = try c.decodeIfPresent(Int.self, forKey: .capitalPercent) ?? 0
         punctuationPercent = try c.decodeIfPresent(Int.self, forKey: .punctuationPercent) ?? 0
@@ -156,6 +157,7 @@ struct AppSettings: Codable, Equatable {
         paceWPM = try c.decodeIfPresent(Int.self, forKey: .paceWPM) ?? 0
         strictMode = try c.decodeIfPresent(Bool.self, forKey: .strictMode) ?? false
         wordPool = try c.decodeIfPresent(Int.self, forKey: .wordPool) ?? 1000
+        if ![200, 500, 1000, 2000, 3000].contains(wordPool) { wordPool = wordPool > 2000 ? 3000 : (wordPool <= 300 ? 200 : 1000) }
         dailyGoalMinutes = try c.decodeIfPresent(Int.self, forKey: .dailyGoalMinutes) ?? 20
         wordCount = try c.decodeIfPresent(Int.self, forKey: .wordCount) ?? 30
         linesShown = try c.decodeIfPresent(Int.self, forKey: .linesShown) ?? 4
